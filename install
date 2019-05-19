@@ -1,0 +1,7 @@
+#!/bin/bash
+
+rm -rf /opt/mycroft/skills/localmusicplayer-skill.colla69
+
+mkdir /opt/mycroft/skills/localmusicplayer-skill.colla69
+
+cp -r ~/sandbox/localmusicplayer-skill/* /opt/mycroft/skills/localmusicplayer-skill.colla69/

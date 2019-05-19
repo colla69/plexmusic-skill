@@ -1,0 +1,3 @@
+search (?P<SongToPlay>.*)
+search music (?P<SongToPlay>.*)
+play (?P<SongToPlay>.*)

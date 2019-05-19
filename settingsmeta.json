@@ -1,0 +1,23 @@
+{
+    "name": "Plex Music Skill",
+    "skillMetadata": {
+        "sections": [
+            {
+                "name": "Configuration",
+                "fields": [
+                    {
+                        "type": "label",
+                        "label": ""
+                    },
+                    {
+                        "name": "musicsource",
+                        "type": "text",
+                        "label": "Music sourcefolder",
+                        "value": "",
+                        "placeholder": "path to music"
+                    }
+                ]
+            }
+        ]
+    }
+}
