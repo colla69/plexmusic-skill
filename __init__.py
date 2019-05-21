@@ -8,14 +8,11 @@ from mycroft.util.log import LOG
 from mycroft.skills.common_play_skill import CommonPlaySkill, CPSMatchLevel
 from fuzzywuzzy import fuzz
 from fuzzywuzzy import process
-import eyed3
+from mycroft.util.parse import match_one
 from json import load, dump
-
+import vlc
 
 __author__ = 'colla69'
-
-
-eyed3.log.setLevel("ERROR")
 
 
 def refresh_library(path):
@@ -29,15 +26,26 @@ class PlexMusicSkill(CommonPlaySkill):
         artist, a_prob = self.artist_search(phrase)
         album, al_prob = self.album_search(phrase)
         print("""
-%s %d
+%s %f
 %s %d
 %s %d        
         """ % (title, t_prob, artist, a_prob, album, al_prob))
-        return phrase, CPSMatchLevel.TITLE
+        data = {
+            "title": title,
+            "file": self.titles[title]
+        }
+        return (phrase, CPSMatchLevel.EXACT, data)
 
     def CPS_start(self, phrase, data):
-        # search_player(phrase)
-        pass
+        # print("playing")
+        # print(data)
+        # os.system('cvlc "%s" ' % data["file"])
+        # os.system('vlc --intf dummy "%s" ' % data["file"])
+        # print(data["file"][0])
+        m = self.vlcI.media_new(data["file"][0])
+        self.player.set_media(m)
+        # player.add_.MediaPlayer('http://plex.colarietitosti.info:32400/library/parts/12226/1557727332/file.mp3?download=1&X-Plex-Token=y9pLd6uPWXpwbw14sRYf')
+        self.player.play()
 
     def __init__(self):
         super().__init__(name="TemplateSkill")
@@ -45,13 +53,15 @@ class PlexMusicSkill(CommonPlaySkill):
         self.artists = defaultdict(list)
         self.albums = defaultdict(list)
         self.titles = defaultdict(list)
+        self.vlcI = vlc.Instance()
+        self.player = self.vlcI.media_player_new()
 
 
     def initialize(self):
         self.load_data()
 
     def load_data(self):
-        datapath = os.path.realpath("../../../" + self.music_source.strip() + "data.json")
+        datapath = os.path.expanduser(self.music_source.strip() + "data.json")
         LOG.info("loading "+datapath)
         if os.path.isfile(datapath):
             data = self.json_load(datapath)
@@ -84,30 +94,21 @@ class PlexMusicSkill(CommonPlaySkill):
 
     def title_search(self, phrase):
         probabilities = process.extractOne(phrase, self.titles.keys(), scorer=fuzz.ratio)
-        title = probabilities[0]
+        artist = probabilities[0]
         confidence = probabilities[1]
-        if confidence > 0:
-            return title, confidence
-        else:
-            return "Null", 0
+        return artist, confidence
 
     def artist_search(self, phrase):
         probabilities = process.extractOne(phrase, self.artists.keys(), scorer=fuzz.ratio)
         artist = probabilities[0]
         confidence = probabilities[1]
-        if confidence > 0:
-            return artist, confidence
-        else:
-            return "Null", 0
+        return artist, confidence
 
     def album_search(self, phrase):
         probabilities = process.extractOne(phrase, self.albums.keys(), scorer=fuzz.ratio)
         album = probabilities[0]
         confidence = probabilities[1]
-        if confidence > 0:
-            return album, confidence
-        else:
-            return "Null", 0
+        return album, confidence
 
     @intent_file_handler('play.music.intent')
     def handle_play_music_ntent(self, message):
