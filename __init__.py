@@ -12,6 +12,8 @@ from fuzzywuzzy import process
 from mycroft.util.parse import match_one
 from json import load, dump
 import vlc
+import xml.etree.ElementTree as ET
+import requests
 
 __author__ = 'colla69'
 
@@ -26,10 +28,10 @@ class PlexMusicSkill(CommonPlaySkill):
         title, t_prob = self.title_search(phrase)
         artist, a_prob = self.artist_search(phrase)
         album, al_prob = self.album_search(phrase)
-        print("""
-        %s %f
-        %s %d
-        %s %d        
+        print(""" Plex Music skill
+Title   %s  %f
+Artist  %s  %d
+Album   %s  %d        
         """ % (title, t_prob, artist, a_prob, album, al_prob))
 
         if t_prob > al_prob and t_prob > a_prob:
@@ -63,17 +65,23 @@ class PlexMusicSkill(CommonPlaySkill):
             self.player.set_media_list(m)
             self.player.play()
         except Exception as e:
-            print(type(e))
-            print("Unexpected error:", sys.exc_info()[0])
+            LOG.info(type(e))
+            LOG.info("Unexpected error:", sys.exc_info()[0])
             raise
         finally:
             time.sleep(2)
             if not self.get_running():
-                self.speak("playback problem")
+                self.speak_dialog("playback.problem")
+                self.speak_dialog("excuses")
 
     def __init__(self):
         super().__init__(name="TemplateSkill")
-        self.music_source = self.settings.get("musicsource", "")
+        uri = self.settings.get("musicsource", "")
+
+        token = self.settings.get("plextoken", "")
+        self.p_uri = uri+":32400"
+        self.p_token = "?X-Plex-Token="+token
+        self.data_path = os.path.expanduser("~/.config/plexSkill/data.json")
         self.artists = defaultdict(list)
         self.albums = defaultdict(list)
         self.titles = defaultdict(list)
@@ -89,20 +97,14 @@ class PlexMusicSkill(CommonPlaySkill):
         return self.play_status
 
     def load_data(self):
-        datapath = os.path.expanduser(self.music_source.strip() + "data.json")
-        LOG.info("loading "+datapath)
-        if os.path.isfile(datapath):
-            data = self.json_load(datapath)
-        else:
-            """ dialog uh I don't seem to know your library yet """
-            """ dialog let me load that for you, """
-            """ dialog this could take some time """
+        LOG.info("loading "+self.data_path)
+        if not os.path.isfile(self.data_path):
+            self.speak_dialog("library.unknown")
             LOG.info("making new JsonData ")
-            #f_count, data, errors = self.get_data_from_dir()
-            #print("loaded " + str(f_count) + " files , with " + str(errors) + " errors")
-            #self.json_save(data, self.rootDir+"data.json")
-            """ dialog we are ready to go """
+            self.down_plex_lib()
+            self.speak_dialog("done")
 
+        data = self.json_load(self.data_path)
         for artist in data:
             for album in data[artist]:
                 for song in data[artist][album]:
@@ -123,6 +125,9 @@ class PlexMusicSkill(CommonPlaySkill):
         with open(fname, 'r') as fp:
             return load(fp)
 
+    def get_tokenized_uri(self, uri):
+        return self.p_uri + uri + self.p_token
+
     def title_search(self, phrase):
         probabilities = process.extractOne(phrase, self.titles.keys(), scorer=fuzz.ratio)
         artist = probabilities[0]
@@ -141,6 +146,43 @@ class PlexMusicSkill(CommonPlaySkill):
         confidence = probabilities[1]
         return album, confidence
 
+    def down_plex_lib(self):
+        xml = requests.get(self.get_tokenized_uri("/library/sections")).text
+        root = ET.fromstring(xml)
+        LOG.info(self.get_tokenized_uri("/library/sections"))
+        for child in root:
+            if "music" in child.attrib["title"].lower():
+                artisturi = self.get_tokenized_uri("/library/sections/" + child.attrib["key"] + "/all")
+        xml = requests.get(artisturi).text
+        root = ET.fromstring(xml)
+        artists = defaultdict(list)
+        albums = defaultdict(list)
+        titles = defaultdict(list)
+        count = 0
+        songs = {}
+        for artist in root:
+            songs[artist.get("title")] = {}
+            artist_uri = self.get_tokenized_uri(artist.get("key"))
+            plexalbums = ET.fromstring(requests.get(artist_uri).text)
+            for album in plexalbums:
+                songs[artist.get("title")][album.get("title")] = []
+                album_uri = self.get_tokenized_uri(album.get("key"))
+                plexsongs = ET.fromstring(requests.get(album_uri).text)
+                for songmeta in plexsongs:
+                    song_uri = self.get_tokenized_uri(songmeta.get("key"))
+                    song = ET.fromstring(requests.get(song_uri).text)
+                    for p in song.iter("Part"):
+                        title = songmeta.get("title")
+                        file = self.get_tokenized_uri(p.get("key"))
+                        songs[artist.get("title")][album.get("title")].append([title, file])
+                        LOG.debug("""%d 
+        %s -- %s 
+        %s
+
+                        """ % (count, artist.get("title"), album.get("title"), title))
+                        count += 1
+        self.json_save(songs, self.data_path)
+
     @intent_file_handler('play.music.intent')
     def handle_play_music_intent(self, message):
         pass
@@ -152,6 +194,10 @@ class PlexMusicSkill(CommonPlaySkill):
     @intent_file_handler('next.music.intent')
     def handle_next_music_intent(self, message):
         self.player.next()
+
+    @intent_file_handler('prev.music.intent')
+    def handle_prev_music_intent(self, message):
+        self.player.previous()
 
     @intent_file_handler('reload.library.intent')
     def handle_reload_library_intent(self, message):

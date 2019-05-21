@@ -1,3 +1,4 @@
+requests
 fuzzywuzzy
 python-Levenshtein
 python-vlc

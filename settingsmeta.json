@@ -7,14 +7,21 @@
                 "fields": [
                     {
                         "type": "label",
-                        "label": ""
+                        "label": "for further info visit \n https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/"
                     },
                     {
                         "name": "musicsource",
                         "type": "text",
-                        "label": "Music sourcefolder",
+                        "label": "plex uri",
                         "value": "",
-                        "placeholder": "path to music"
+                        "placeholder": "plex uri"
+                    },
+                    {
+                        "name": "plextoken",
+                        "type": "text",
+                        "label": "plex token",
+                        "value": "",
+                        "placeholder": "plex token"
                     }
                 ]
             }
