@@ -198,7 +198,7 @@ Album   %s  %d
     def handle_listener_stopped(self, message):
         if self.get_running():
             volume = self.player.get_media_player().audio_get_volume()
-            doubleit = volume *
+            doubleit = volume *2
             self.player.get_media_player().audio_set_volume(doubleit)
 
 
