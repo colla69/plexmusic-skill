@@ -87,14 +87,10 @@ Album   %s  %d
         self.titles = defaultdict(list)
         self.vlcI = vlc.Instance()
         self.player = self.vlcI.media_list_player_new()
-        self.get_play_status()
 
-    def get_play_status(self):
-        self.play_status = self.player.is_playing()
 
     def get_running(self):
-        self.get_play_status()
-        return self.play_status
+        return self.player.is_playing()
 
     def load_data(self):
         LOG.info("loading "+self.data_path)
@@ -116,6 +112,13 @@ Album   %s  %d
 
     def initialize(self):
         self.load_data()
+        self.add_event('recognizer_loop:record_begin',
+                       self.handle_listener_started)
+        self.add_event('recognizer_loop:record_end',
+                       self.handle_listener_stopped)
+
+    ###################################
+    # Utils
 
     def json_save(self, data, fname):
         with open(fname, 'w') as fp:
@@ -182,6 +185,25 @@ Album   %s  %d
                         """ % (count, artist.get("title"), album.get("title"), title))
                         count += 1
         self.json_save(songs, self.data_path)
+
+    ######################################################################
+    # audio ducking
+
+    def handle_listener_started(self, message):
+        if self.get_running():
+            volume = self.player.get_media_player().audio_get_volume()
+            half = volume // 2
+            self.player.get_media_player().audio_set_volume(half)
+
+    def handle_listener_stopped(self, message):
+        if self.get_running():
+            volume = self.player.get_media_player().audio_get_volume()
+            doubleit = volume *
+            self.player.get_media_player().audio_set_volume(doubleit)
+
+
+    ##################################################################
+    # intents
 
     @intent_file_handler('play.music.intent')
     def handle_play_music_intent(self, message):
