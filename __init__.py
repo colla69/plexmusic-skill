@@ -23,35 +23,39 @@ def refresh_library(path):
 class PlexMusicSkill(CommonPlaySkill):
 
     def CPS_match_query_phrase(self, phrase):
-        title, t_prob = self.title_search(phrase)
-        artist, a_prob = self.artist_search(phrase)
-        album, al_prob = self.album_search(phrase)
-        print(""" Plex Music skill
-Title   %s  %f
-Artist  %s  %d
-Album   %s  %d        
-        """ % (title, t_prob, artist, a_prob, album, al_prob))
-
-        if t_prob > al_prob and t_prob > a_prob:
-            data = {
-                "title": title,
-                "file": self.titles[title]
-            }
-            return phrase, CPSMatchLevel.TITLE, data
-        elif a_prob >= al_prob:
-            data = {
-                "title": artist,
-                "file": self.artists[artist]
-            }
-            return phrase, CPSMatchLevel.MULTI_KEY, data
-        elif al_prob > a_prob:
-            data = {
-                "title": album,
-                "file": self.albums[album]
-            }
-            return phrase, CPSMatchLevel.MULTI_KEY, data
-        else:
+        if self.refreshing_lib:
+            self.speak_dialog("refresh.library")
             return None
+        else:
+            title, t_prob = self.title_search(phrase)
+            artist, a_prob = self.artist_search(phrase)
+            album, al_prob = self.album_search(phrase)
+            print(""" Plex Music skill
+    Title   %s  %f
+    Artist  %s  %d
+    Album   %s  %d        
+            """ % (title, t_prob, artist, a_prob, album, al_prob))
+
+            if t_prob > al_prob and t_prob > a_prob:
+                data = {
+                    "title": title,
+                    "file": self.titles[title]
+                }
+                return phrase, CPSMatchLevel.TITLE, data
+            elif a_prob >= al_prob:
+                data = {
+                    "title": artist,
+                    "file": self.artists[artist]
+                }
+                return phrase, CPSMatchLevel.MULTI_KEY, data
+            elif al_prob > a_prob:
+                data = {
+                    "title": album,
+                    "file": self.albums[album]
+                }
+                return phrase, CPSMatchLevel.MULTI_KEY, data
+            else:
+                return None
 
     def CPS_start(self, phrase, data):
         if self.get_running():
@@ -75,8 +79,9 @@ Album   %s  %d
     def __init__(self):
         super().__init__(name="TemplateSkill")
         uri = self.settings.get("musicsource", "")
-
         token = self.settings.get("plextoken", "")
+        self.ducking = self.settings.get("ducking", "True")
+        self.refreshing_lib = False
         self.p_uri = uri+":32400"
         self.p_token = "?X-Plex-Token="+token
         self.data_path = os.path.expanduser("~/.config/plexSkill/data.json")
@@ -85,7 +90,6 @@ Album   %s  %d
         self.titles = defaultdict(list)
         self.vlcI = vlc.Instance()
         self.player = self.vlcI.media_list_player_new()
-
 
     def get_running(self):
         return self.player.is_playing()
@@ -97,7 +101,6 @@ Album   %s  %d
             LOG.info("making new JsonData ")
             self.down_plex_lib()
             self.speak_dialog("done")
-
         data = self.json_load(self.data_path)
         for artist in data:
             for album in data[artist]:
@@ -114,6 +117,7 @@ Album   %s  %d
         self.add_event('recognizer_loop:record_end', self.handle_listener_stopped)
         self.add_event('recognizer_loop:audio_output_start', self.handle_audio_start)
         self.add_event('recognizer_loop:audio_output_end', self.handle_audio_stop)
+        self.gui.show_image("https://source.unsplash.com/1920x1080/?+autumn")
 
     ###################################
     # Utils
@@ -148,45 +152,48 @@ Album   %s  %d
         return album, confidence
 
     def down_plex_lib(self):
-        xml = requests.get(self.get_tokenized_uri("/library/sections")).text
-        root = ET.fromstring(xml)
-        LOG.info(self.get_tokenized_uri("/library/sections"))
-        for child in root:
-            if "music" in child.attrib["title"].lower():
-                artisturi = self.get_tokenized_uri("/library/sections/" + child.attrib["key"] + "/all")
-        xml = requests.get(artisturi).text
-        root = ET.fromstring(xml)
-        artists = defaultdict(list)
-        albums = defaultdict(list)
-        titles = defaultdict(list)
-        count = 0
-        songs = {}
-        for artist in root:
-            songs[artist.get("title")] = {}
-            artist_uri = self.get_tokenized_uri(artist.get("key"))
-            plexalbums = ET.fromstring(requests.get(artist_uri).text)
-            for album in plexalbums:
-                songs[artist.get("title")][album.get("title")] = []
-                album_uri = self.get_tokenized_uri(album.get("key"))
-                plexsongs = ET.fromstring(requests.get(album_uri).text)
-                for songmeta in plexsongs:
-                    song_uri = self.get_tokenized_uri(songmeta.get("key"))
-                    song = ET.fromstring(requests.get(song_uri).text)
-                    for p in song.iter("Part"):
-                        title = songmeta.get("title")
-                        file = self.get_tokenized_uri(p.get("key"))
-                        songs[artist.get("title")][album.get("title")].append([title, file])
-                        LOG.debug("""%d 
-        %s -- %s 
-        %s
-
-                        """ % (count, artist.get("title"), album.get("title"), title))
-                        count += 1
-        self.json_save(songs, self.data_path)
+        self.refreshing_lib = True
+        try:
+            xml = requests.get(self.get_tokenized_uri("/library/sections")).text
+            root = ET.fromstring(xml)
+            LOG.info(self.get_tokenized_uri("/library/sections"))
+            for child in root:
+                if "music" in child.attrib["title"].lower():
+                    artisturi = self.get_tokenized_uri("/library/sections/" + child.attrib["key"] + "/all")
+            xml = requests.get(artisturi).text
+            root = ET.fromstring(xml)
+            artists = defaultdict(list)
+            albums = defaultdict(list)
+            titles = defaultdict(list)
+            count = 0
+            songs = {}
+            for artist in root:
+                songs[artist.get("title")] = {}
+                artist_uri = self.get_tokenized_uri(artist.get("key"))
+                plexalbums = ET.fromstring(requests.get(artist_uri).text)
+                for album in plexalbums:
+                    songs[artist.get("title")][album.get("title")] = []
+                    album_uri = self.get_tokenized_uri(album.get("key"))
+                    plexsongs = ET.fromstring(requests.get(album_uri).text)
+                    for songmeta in plexsongs:
+                        song_uri = self.get_tokenized_uri(songmeta.get("key"))
+                        song = ET.fromstring(requests.get(song_uri).text)
+                        for p in song.iter("Part"):
+                            title = songmeta.get("title")
+                            file = self.get_tokenized_uri(p.get("key"))
+                            songs[artist.get("title")][album.get("title")].append([title, file])
+                            LOG.debug("""%d 
+            %s -- %s 
+            %s
+    
+                            """ % (count, artist.get("title"), album.get("title"), title))
+                            count += 1
+            self.json_save(songs, self.data_path)
+        finally:
+            self.refreshing_lib = False
 
     ######################################################################
     # audio ducking
-
 
     def lower_volume_onethird(self):
         if self.get_running():
@@ -201,17 +208,20 @@ Album   %s  %d
             self.player.get_media_player().audio_set_volume(volume)
 
     def handle_listener_started(self, message):
-        self.lower_volume_onethird()
+        if self.ducking:
+            self.lower_volume_onethird()
 
     def handle_listener_stopped(self, message):
-        self.raise_volume_onethird()
+        if self.ducking:
+            self.raise_volume_onethird()
 
     def handle_audio_start(self, event):
-        self.lower_volume_onethird()
+        if self.ducking:
+            self.lower_volume_onethird()
 
     def handle_audio_stop(self, event):
-        self.raise_volume_onethird()
-
+        if self.ducking:
+            self.raise_volume_onethird()
 
     ##################################################################
     # intents
@@ -220,22 +230,46 @@ Album   %s  %d
     def handle_play_music_intent(self, message):
         pass
 
+    @intent_file_handler('resume.music.intent')
+    def handle_resume_music_intent(self, message):
+        if self.refreshing_lib:
+            self.speak_dialog("refresh.library")
+            return None
+        else:
+            self.player.play()
+
     @intent_file_handler('pause.music.intent')
     def handle_pause_music_intent(self, message):
-        self.player.pause()
+        if self.refreshing_lib:
+            self.speak_dialog("refresh.library")
+            return None
+        else:
+            self.player.pause()
 
     @intent_file_handler('next.music.intent')
     def handle_next_music_intent(self, message):
-        self.player.next()
+        if self.refreshing_lib:
+            self.speak_dialog("refresh.library")
+            return None
+        else:
+            self.player.next()
 
     @intent_file_handler('prev.music.intent')
     def handle_prev_music_intent(self, message):
-        self.player.previous()
+        if self.refreshing_lib:
+            self.speak_dialog("refresh.library")
+            return None
+        else:
+            self.player.previous()
 
     @intent_file_handler('reload.library.intent')
     def handle_reload_library_intent(self, message):
-        self.speak_dialog("refresh.library")
-        self.load_data()
+        if self.refreshing_lib:
+            self.speak_dialog("already.refresh.library")
+            return None
+        else:
+            self.speak_dialog("refresh.library")
+            self.load_data()
 
     def converse(self, utterances, lang="en-us"):
         return False
