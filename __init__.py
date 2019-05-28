@@ -3,13 +3,11 @@ import sys
 import time
 from collections import defaultdict
 
-from adapt.intent import IntentBuilder
-from mycroft.skills.core import MycroftSkill, intent_file_handler, intent_handler
+from mycroft.skills.core import intent_file_handler
 from mycroft.util.log import LOG
 from mycroft.skills.common_play_skill import CommonPlaySkill, CPSMatchLevel
 from fuzzywuzzy import fuzz
 from fuzzywuzzy import process
-from mycroft.util.parse import match_one
 from json import load, dump
 import vlc
 import xml.etree.ElementTree as ET
@@ -112,10 +110,10 @@ Album   %s  %d
 
     def initialize(self):
         self.load_data()
-        self.add_event('recognizer_loop:record_begin',
-                       self.handle_listener_started)
-        self.add_event('recognizer_loop:record_end',
-                       self.handle_listener_stopped)
+        self.add_event('recognizer_loop:record_begin', self.handle_listener_started)
+        self.add_event('recognizer_loop:record_end', self.handle_listener_stopped)
+        self.add_event('recognizer_loop:audio_output_start', self.handle_audio_start)
+        self.add_event('recognizer_loop:audio_output_end', self.handle_audio_stop)
 
     ###################################
     # Utils
@@ -189,17 +187,30 @@ Album   %s  %d
     ######################################################################
     # audio ducking
 
-    def handle_listener_started(self, message):
+
+    def lower_volume_onethird(self):
         if self.get_running():
             volume = self.player.get_media_player().audio_get_volume()
-            half = volume // 2
-            self.player.get_media_player().audio_set_volume(half)
+            volume = (volume // 3) * 2
+            self.player.get_media_player().audio_set_volume(volume)
+
+    def raise_volume_onethird(self):
+        if self.get_running():
+            volume = self.player.get_media_player().audio_get_volume()
+            volume = (volume // 2) * 3
+            self.player.get_media_player().audio_set_volume(volume)
+
+    def handle_listener_started(self, message):
+        self.lower_volume_onethird()
 
     def handle_listener_stopped(self, message):
-        if self.get_running():
-            volume = self.player.get_media_player().audio_get_volume()
-            doubleit = volume *2
-            self.player.get_media_player().audio_set_volume(doubleit)
+        self.raise_volume_onethird()
+
+    def handle_audio_start(self, event):
+        self.lower_volume_onethird()
+
+    def handle_audio_stop(self, event):
+        self.raise_volume_onethird()
 
 
     ##################################################################
