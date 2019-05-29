@@ -2,7 +2,7 @@ import os
 import sys
 import time
 from collections import defaultdict
-
+import re
 from mycroft.skills.core import intent_file_handler
 from mycroft.util.log import LOG
 from mycroft.skills.common_play_skill import CommonPlaySkill, CPSMatchLevel
@@ -27,6 +27,8 @@ class PlexMusicSkill(CommonPlaySkill):
             self.speak_dialog("refresh.library")
             return None
         else:
+            phrase = re.sub(self.translate_regex('on_plex'), '', phrase)
+            print(phrase)
             title, t_prob = self.title_search(phrase)
             artist, a_prob = self.artist_search(phrase)
             album, al_prob = self.album_search(phrase)
@@ -35,7 +37,6 @@ class PlexMusicSkill(CommonPlaySkill):
     Artist  %s  %d
     Album   %s  %d        
             """ % (title, t_prob, artist, a_prob, album, al_prob))
-
             if t_prob > al_prob and t_prob > a_prob:
                 data = {
                     "title": title,
@@ -60,12 +61,21 @@ class PlexMusicSkill(CommonPlaySkill):
     def CPS_start(self, phrase, data):
         if self.get_running():
             self.player.stop()
+        print(data)
         title = data["title"]
         link = data["file"]
         try:
-            m = self.vlcI.media_list_new(link)
-            self.player.set_media_list(m)
-            self.player.play()
+            if len(link) >= 1:
+                self.player = self.vlcI.media_list_player_new()
+                m = self.vlcI.media_list_new(link)
+                self.player.set_media_list(m)
+                self.player.play()
+            else:
+                self.player = self.vlcI.media_player_new()
+                m = self.vlcI.media_new(link)
+                self.player.set_media(m)
+                self.player.play()
+
         except Exception as e:
             LOG.info(type(e))
             LOG.info("Unexpected error:", sys.exc_info()[0])
@@ -81,6 +91,7 @@ class PlexMusicSkill(CommonPlaySkill):
         uri = self.settings.get("musicsource", "")
         token = self.settings.get("plextoken", "")
         self.ducking = self.settings.get("ducking", "True")
+        self.regexes = {}
         self.refreshing_lib = False
         self.p_uri = uri+":32400"
         self.p_token = "?X-Plex-Token="+token
@@ -90,6 +101,13 @@ class PlexMusicSkill(CommonPlaySkill):
         self.titles = defaultdict(list)
         self.vlcI = vlc.Instance()
         self.player = self.vlcI.media_list_player_new()
+
+    def initialize(self):
+        self.load_data()
+        self.add_event('recognizer_loop:record_begin', self.handle_listener_started)
+        self.add_event('recognizer_loop:record_end', self.handle_listener_stopped)
+        self.add_event('recognizer_loop:audio_output_start', self.handle_audio_start)
+        self.add_event('recognizer_loop:audio_output_end', self.handle_audio_stop)
 
     def get_running(self):
         return self.player.is_playing()
@@ -111,13 +129,15 @@ class PlexMusicSkill(CommonPlaySkill):
                     self.artists[artist].append(file)
                     self.titles[title].append(file)
 
-    def initialize(self):
-        self.load_data()
-        self.add_event('recognizer_loop:record_begin', self.handle_listener_started)
-        self.add_event('recognizer_loop:record_end', self.handle_listener_stopped)
-        self.add_event('recognizer_loop:audio_output_start', self.handle_audio_start)
-        self.add_event('recognizer_loop:audio_output_end', self.handle_audio_stop)
-        self.gui.show_image("https://source.unsplash.com/1920x1080/?+autumn")
+    # thanks to forslund
+    def translate_regex(self, regex):
+        if regex not in self.regexes:
+            path = self.find_resource(regex + '.regex')
+            if path:
+                with open(path) as f:
+                    string = f.read().strip()
+                self.regexes[regex] = string
+        return self.regexes[regex]
 
     ###################################
     # Utils

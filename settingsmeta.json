@@ -25,7 +25,7 @@
                     },
                     {
                         "name": "ducking",
-                        "type": "boolean",
+                        "type": "checkbox",
                         "label": "audio ducking: turn down volume while listening / speaking",
                         "value": "",
                         "placeholder": ""
