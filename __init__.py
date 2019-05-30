@@ -59,6 +59,8 @@ class PlexMusicSkill(CommonPlaySkill):
                 return None
 
     def CPS_start(self, phrase, data):
+        if data == None:
+            return None
         if self.get_running():
             self.player.stop()
         print(data)
@@ -197,15 +199,25 @@ class PlexMusicSkill(CommonPlaySkill):
                     plexsongs = ET.fromstring(requests.get(album_uri).text)
                     for songmeta in plexsongs:
                         song_uri = self.get_tokenized_uri(songmeta.get("key"))
-                        song = ET.fromstring(requests.get(song_uri).text)
+                        try:
+                            s = requests.get(song_uri).text
+                            if s == "":
+                                continue
+                        except:
+                            continue
+                        song = ET.fromstring(s)
                         for p in song.iter("Part"):
                             title = songmeta.get("title")
                             file = self.get_tokenized_uri(p.get("key"))
                             songs[artist.get("title")][album.get("title")].append([title, file])
-                            LOG.debug("""%d 
+                            # print(songs)
+                            # albums[album.get("title")].append(file)
+                            # artists[artist.get("title")].append(file)
+                            # titles[song.get("title")].append(file)
+                            print("""%d 
             %s -- %s 
             %s
-    
+
                             """ % (count, artist.get("title"), album.get("title"), title))
                             count += 1
             self.json_save(songs, self.data_path)
@@ -287,8 +299,9 @@ class PlexMusicSkill(CommonPlaySkill):
         if self.refreshing_lib:
             self.speak_dialog("already.refresh.library")
             return None
-        else:
+        else: 
             self.speak_dialog("refresh.library")
+            os.remove(self.data_path)
             self.load_data()
 
     def converse(self, utterances, lang="en-us"):
