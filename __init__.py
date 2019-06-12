@@ -196,8 +196,8 @@ class PlexMusicSkill(CommonPlaySkill):
             xml = requests.get(self.get_tokenized_uri("/library/sections")).text
             root = ET.fromstring(xml)
             LOG.info(self.get_tokenized_uri("/library/sections"))
+            LOG.info("loading from library: "+self.lib_name)
             for child in root:
-                print()
                 if self.lib_name == child.attrib["title"].lower():
                     artisturi = self.get_tokenized_uri("/library/sections/" + child.attrib["key"] + "/all")
             xml = requests.get(artisturi).text
