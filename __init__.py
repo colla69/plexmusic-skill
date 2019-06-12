@@ -123,10 +123,11 @@ class PlexMusicSkill(CommonPlaySkill):
         if not os.path.isfile(self.data_path):
             self.speak_dialog("library.unknown")
         self.load_data()
-        self.add_event('recognizer_loop:record_begin', self.handle_listener_started)
-        self.add_event('recognizer_loop:record_end', self.handle_listener_stopped)
-        self.add_event('recognizer_loop:audio_output_start', self.handle_audio_start)
-        self.add_event('recognizer_loop:audio_output_end', self.handle_audio_stop)
+        if self.ducking:
+            self.add_event('recognizer_loop:record_begin', self.handle_listener_started)
+            self.add_event('recognizer_loop:record_end', self.handle_listener_stopped)
+            self.add_event('recognizer_loop:audio_output_start', self.handle_audio_start)
+            self.add_event('recognizer_loop:audio_output_end', self.handle_audio_stop)
 
     def get_running(self):
         return self.player.is_playing()
