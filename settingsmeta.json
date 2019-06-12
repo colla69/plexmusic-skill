@@ -24,6 +24,13 @@
                         "placeholder": "plex token"
                     },
                     {
+                        "name": "plexlib",
+                        "type": "text",
+                        "label": "Library name in plex",
+                        "value": "",
+                        "placeholder": "Library name"
+                    },
+                    {
                         "name": "ducking",
                         "type": "checkbox",
                         "label": "audio ducking: turn down volume while listening / speaking",

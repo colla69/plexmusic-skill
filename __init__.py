@@ -1,4 +1,5 @@
 import os
+import random
 import sys
 import time
 from collections import defaultdict
@@ -28,10 +29,20 @@ class PlexMusicSkill(CommonPlaySkill):
             return None
         else:
             phrase = re.sub(self.translate_regex('on_plex'), '', phrase)
-            print(phrase)
-            title, t_prob = self.title_search(phrase)
-            artist, a_prob = self.artist_search(phrase)
-            album, al_prob = self.album_search(phrase)
+            title = ""
+            artist = ""
+            album = ""
+            t_prob = 0
+            a_prob = 0
+            al_prob = 0
+            if phrase.startswith("artist"):
+                artist, a_prob = self.artist_search(phrase[7:])
+            elif phrase.startswith("album"):
+                album, al_prob = self.album_search(phrase[6:])
+            else:
+                title, t_prob = self.title_search(phrase)
+                artist, a_prob = self.artist_search(phrase)
+                album, al_prob = self.album_search(phrase)
             print(""" Plex Music skill
     Title   %s  %f
     Artist  %s  %d
@@ -62,10 +73,13 @@ class PlexMusicSkill(CommonPlaySkill):
         if data == None:
             return None
         if self.get_running():
-            self.player.stop()
-        print(data)
+            self.player.get_media_player().audio_set_volume(80)
+            self.player.stop()                        
+        LOG.info(data)
         title = data["title"]
         link = data["file"]
+        random.shuffle(link)
+        LOG.info(data)
         try:
             if len(link) >= 1:
                 self.player = self.vlcI.media_list_player_new()
@@ -77,7 +91,6 @@ class PlexMusicSkill(CommonPlaySkill):
                 m = self.vlcI.media_new(link)
                 self.player.set_media(m)
                 self.player.play()
-
         except Exception as e:
             LOG.info(type(e))
             LOG.info("Unexpected error:", sys.exc_info()[0])
@@ -92,6 +105,7 @@ class PlexMusicSkill(CommonPlaySkill):
         super().__init__(name="TemplateSkill")
         uri = self.settings.get("musicsource", "")
         token = self.settings.get("plextoken", "")
+        self.lib_name = self.settings.get("plexlib", "")
         self.ducking = self.settings.get("ducking", "True")
         self.regexes = {}
         self.refreshing_lib = False
@@ -103,8 +117,11 @@ class PlexMusicSkill(CommonPlaySkill):
         self.titles = defaultdict(list)
         self.vlcI = vlc.Instance()
         self.player = self.vlcI.media_list_player_new()
+        self.player.get_media_player().audio_set_volume(100)
 
     def initialize(self):
+        if not os.path.isfile(self.data_path):
+            self.speak_dialog("library.unknown")
         self.load_data()
         self.add_event('recognizer_loop:record_begin', self.handle_listener_started)
         self.add_event('recognizer_loop:record_end', self.handle_listener_stopped)
@@ -117,7 +134,6 @@ class PlexMusicSkill(CommonPlaySkill):
     def load_data(self):
         LOG.info("loading "+self.data_path)
         if not os.path.isfile(self.data_path):
-            self.speak_dialog("library.unknown")
             LOG.info("making new JsonData ")
             self.down_plex_lib()
             self.speak_dialog("done")
@@ -180,7 +196,8 @@ class PlexMusicSkill(CommonPlaySkill):
             root = ET.fromstring(xml)
             LOG.info(self.get_tokenized_uri("/library/sections"))
             for child in root:
-                if "music" in child.attrib["title"].lower():
+                print()
+                if self.lib_name == child.attrib["title"].lower():
                     artisturi = self.get_tokenized_uri("/library/sections/" + child.attrib["key"] + "/all")
             xml = requests.get(artisturi).text
             root = ET.fromstring(xml)
@@ -221,6 +238,7 @@ class PlexMusicSkill(CommonPlaySkill):
                             """ % (count, artist.get("title"), album.get("title"), title))
                             count += 1
             self.json_save(songs, self.data_path)
+            LOG.info("done loading library")
         finally:
             self.refreshing_lib = False
 

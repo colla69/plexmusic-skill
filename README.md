@@ -19,13 +19,13 @@ This Mycroft skill can play music from your plex media server with speech comman
  - "Hey mycroft, play eminem!"
 
 ### functions
-  - Play [titlt|artist|album]
+  - Play [title|artist|album]
   - Pause music
   - Resume music
   - Next|Skip
 
 ### usage
-  the first intallation will
+  the first intallation will need to download 
 
 ### Credits
 colla69
