@@ -1,4 +1,4 @@
-## Localmusicplayer
+## PlexMusic-Skill
 
 ### Description
 
