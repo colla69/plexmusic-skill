@@ -4,11 +4,6 @@ from plexapi.myplex import MyPlexAccount
 from plexapi.server import PlexServer
 
 
-token = "y9pLd6uPWXpwbw14sRYf"
-plexurl = "http://plex.colarietitosti.info:32400"
-libname = "music"
-data_path = "data.json"
-
 class PlexBackend():
             
     def __init__(self, plexurl, token, libname, data_path):
