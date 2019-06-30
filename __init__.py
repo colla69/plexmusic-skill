@@ -10,15 +10,10 @@ from mycroft.skills.common_play_skill import CommonPlaySkill, CPSMatchLevel
 from fuzzywuzzy import fuzz
 from fuzzywuzzy import process
 from json import load, dump
+from .plex_backend import PlexBackend
 import vlc
-import xml.etree.ElementTree as ET
-import requests
 
 __author__ = 'colla69'
-
-
-def refresh_library(path):
-    pass
 
 
 class PlexMusicSkill(CommonPlaySkill):
@@ -103,15 +98,16 @@ class PlexMusicSkill(CommonPlaySkill):
 
     def __init__(self):
         super().__init__(name="TemplateSkill")
-        uri = self.settings.get("musicsource", "")
-        token = self.settings.get("plextoken", "")
+        self.uri = self.settings.get("musicsource", "")
+        self.token = self.settings.get("plextoken", "")
         self.lib_name = self.settings.get("plexlib", "")
         self.ducking = self.settings.get("ducking", "True")
         self.regexes = {}
         self.refreshing_lib = False
-        self.p_uri = uri+":32400"
-        self.p_token = "?X-Plex-Token="+token
+        self.p_uri = self.uri+":32400"
+        self.p_token = "?X-Plex-Token="+self.token
         self.data_path = os.path.expanduser("~/.config/plexSkill/data.json")
+        self.plex = PlexBackend(self.p_uri, self.token, self.lib_name, self.data_path)
         self.artists = defaultdict(list)
         self.albums = defaultdict(list)
         self.titles = defaultdict(list)
@@ -136,7 +132,7 @@ class PlexMusicSkill(CommonPlaySkill):
         LOG.info("loading "+self.data_path)
         if not os.path.isfile(self.data_path):
             LOG.info("making new JsonData ")
-            self.down_plex_lib()
+            self.plex.down_plex_lib()
             self.speak_dialog("done")
         data = self.json_load(self.data_path)
         for artist in data:
@@ -333,4 +329,3 @@ class PlexMusicSkill(CommonPlaySkill):
 
 def create_skill():
     return PlexMusicSkill()
-

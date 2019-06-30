@@ -1,4 +1,4 @@
-requests
+plexapi
 fuzzywuzzy
 python-Levenshtein
 python-vlc
