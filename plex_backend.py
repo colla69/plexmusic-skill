@@ -5,6 +5,7 @@ from plexapi.server import PlexServer
 class PlexBackend():
 
     def __init__(self, plexurl, token, libname, data_path):
+
         self.token = token
         self.plexurl = plexurl
         self.lib_name = libname
@@ -13,7 +14,6 @@ class PlexBackend():
         self.music = self.plex.library.section(self.lib_name)
                        
     def down_plex_lib(self):
-
         songs = {}
         try:
             playlists = self.plex.playlists()
@@ -26,7 +26,6 @@ class PlexBackend():
                     file_key = self.get_file(track)
                     file = self.get_tokenized_uri( file_key )
                     songs["playlist"][p_name].append([title, file])
-                    print("dic c")
             root = self.music.all()
             artists = defaultdict(list)
             albums = defaultdict(list)
@@ -57,6 +56,7 @@ class PlexBackend():
             self.json_save(songs, self.data_path)
             print("done loading library")
         except Exception as e:
+            print("diocan")
             print(e)
             return None
 
@@ -69,7 +69,7 @@ class PlexBackend():
             return load(fp)
         
     def get_tokenized_uri(self, uri):
-        return plexurl+uri+"?X-Plex-Token="+token
+        return self.plexurl+uri+"?X-Plex-Token="+self.token
 
     def get_file(self,track):
         for media in track.media:

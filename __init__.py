@@ -144,7 +144,7 @@ class PlexMusicSkill(CommonPlaySkill):
         LOG.info("loading "+self.data_path)
         try:
             if not os.path.isfile(self.data_path):
-                LOG.info("making new JsonData ")
+                LOG.info("making new JsonData")
                 self.plex.down_plex_lib()
                 self.speak_dialog("done")
             data = self.json_load(self.data_path)
