@@ -147,7 +147,6 @@ class PlexMusicSkill(CommonPlaySkill):
                 LOG.info("making new JsonData ")
                 self.plex.down_plex_lib()
                 self.speak_dialog("done")
-
             data = self.json_load(self.data_path)
             for artist in data:
                 if artist == "playlist":
