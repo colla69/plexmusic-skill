@@ -27,6 +27,7 @@ class PlexMusicSkill(CommonPlaySkill):
             title = ""
             artist = ""
             album = ""
+            playlist = ""
             t_prob = 0
             a_prob = 0
             al_prob = 0
@@ -36,12 +37,12 @@ class PlexMusicSkill(CommonPlaySkill):
             elif phrase.startswith("album"):
                 album, al_prob = self.album_search(phrase[6:])
             elif phrase.startswith("playlist"):
-                playlist, p_prob = self.album_search(phrase[9:])
+                playlist, p_prob = self.playlist_search(phrase[9:])
             else:
                 title, t_prob = self.title_search(phrase)
                 artist, a_prob = self.artist_search(phrase)
                 album, al_prob = self.album_search(phrase)
-                playlist, p_prob = self.album_search(phrase)
+                playlist, p_prob = self.playlist_search(phrase)
             print(""" Plex Music skill
     Title      %s  %f
     Artist     %s  %d
@@ -54,13 +55,13 @@ class PlexMusicSkill(CommonPlaySkill):
                     "file": self.titles[title]
                 }
                 return phrase, CPSMatchLevel.TITLE, data
-            elif a_prob >= al_prob:
+            elif a_prob >= al_prob and a_prob != 0:
                 data = {
                     "title": artist,
                     "file": self.artists[artist]
                 }
                 return phrase, CPSMatchLevel.MULTI_KEY, data
-            elif al_prob > a_prob:
+            elif al_prob >= a_prob and al_prob != 0:
                 data = {
                     "title": album,
                     "file": self.albums[album]
@@ -79,8 +80,9 @@ class PlexMusicSkill(CommonPlaySkill):
         if data == None:
             return None
         if self.get_running():
-            self.player.get_media_player().audio_set_volume(80)
-            self.player.stop()                        
+            self.vlc_player.get_media_player().audio_set_volume(80)
+            self.vlc_player.stop()
+
         LOG.info(data)
         title = data["title"]
         link = data["file"]
@@ -88,15 +90,15 @@ class PlexMusicSkill(CommonPlaySkill):
         LOG.info(data)
         try:
             if len(link) >= 1:
-                self.player = self.vlcI.media_list_player_new()
+                self.vlc_player = self.vlcI.media_list_player_new()
                 m = self.vlcI.media_list_new(link)
-                self.player.set_media_list(m)
-                self.player.play()
-            else:
-                self.player = self.vlcI.media_player_new()
-                m = self.vlcI.media_new(link)
-                self.player.set_media(m)
-                self.player.play()
+                self.vlc_player.set_media_list(m)
+                self.vlc_player.play()
+            elif len(link) > 0:
+                self.vlc_player = self.vlcI.media_player_new()
+                m = self.vlcI.media_new(link[0])
+                self.vlc_player.set_media(m)
+                self.vlc_player.play()
         except Exception as e:
             LOG.info(type(e))
             LOG.info("Unexpected error:", sys.exc_info()[0])
@@ -124,8 +126,8 @@ class PlexMusicSkill(CommonPlaySkill):
         self.titles = defaultdict(list)
         self.playlists = defaultdict(list)
         self.vlcI = vlc.Instance()
-        self.player = self.vlcI.media_list_player_new()
-        self.player.get_media_player().audio_set_volume(100)
+        self.vlc_player = self.vlcI.media_list_player_new()
+        self.vlc_player.get_media_player().audio_set_volume(100)
 
     def initialize(self):
         if not os.path.isfile(self.data_path):
@@ -138,7 +140,7 @@ class PlexMusicSkill(CommonPlaySkill):
             self.add_event('recognizer_loop:audio_output_end', self.handle_audio_stop)
 
     def get_running(self):
-        return self.player.is_playing()
+        return self.vlc_player.is_playing()
 
     def load_data(self):
         LOG.info("loading "+self.data_path)
@@ -206,20 +208,27 @@ class PlexMusicSkill(CommonPlaySkill):
         confidence = probabilities[1]
         return album, confidence
 
+    def playlist_search(self, phrase):
+        probabilities = process.extractOne(phrase, self.playlists.keys(), scorer=fuzz.ratio)
+        playlist = probabilities[0]
+        confidence = probabilities[1]
+        print(playlist+ "  " )
+        return playlist, confidence
+
     ######################################################################
     # audio ducking
 
     def lower_volume_onethird(self):
         if self.get_running():
-            volume = self.player.get_media_player().audio_get_volume()
+            volume = self.vlc_player.get_media_player().audio_get_volume()
             volume = (volume // 3) * 2
-            self.player.get_media_player().audio_set_volume(volume)
+            self.vlc_player.get_media_player().audio_set_volume(volume)
 
     def raise_volume_onethird(self):
         if self.get_running():
-            volume = self.player.get_media_player().audio_get_volume()
+            volume = self.vlc_player.get_media_player().audio_get_volume()
             volume = (volume // 2) * 3
-            self.player.get_media_player().audio_set_volume(volume)
+            self.vlc_player.get_media_player().audio_set_volume(volume)
 
     def handle_listener_started(self, message):
         if self.ducking:
@@ -250,7 +259,7 @@ class PlexMusicSkill(CommonPlaySkill):
             self.speak_dialog("refresh.library")
             return None
         else:
-            self.player.play()
+            self.vlc_player.play()
 
     @intent_file_handler('pause.music.intent')
     def handle_pause_music_intent(self, message):
@@ -258,7 +267,7 @@ class PlexMusicSkill(CommonPlaySkill):
             self.speak_dialog("refresh.library")
             return None
         else:
-            self.player.pause()
+            self.vlc_player.pause()
 
     @intent_file_handler('next.music.intent')
     def handle_next_music_intent(self, message):
@@ -266,7 +275,7 @@ class PlexMusicSkill(CommonPlaySkill):
             self.speak_dialog("refresh.library")
             return None
         else:
-            self.player.next()
+            self.vlc_player.next()
 
     @intent_file_handler('prev.music.intent')
     def handle_prev_music_intent(self, message):
@@ -274,7 +283,7 @@ class PlexMusicSkill(CommonPlaySkill):
             self.speak_dialog("refresh.library")
             return None
         else:
-            self.player.previous()
+            self.vlc_player.previous()
 
     @intent_file_handler('reload.library.intent')
     def handle_reload_library_intent(self, message):
@@ -291,7 +300,7 @@ class PlexMusicSkill(CommonPlaySkill):
         return False
 
     def stop(self):
-        self.player.stop()
+        self.vlc_player.stop()
         self.vlcI.release()
 
 
