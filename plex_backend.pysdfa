@@ -1,11 +1,9 @@
 from collections import defaultdict
 from json import load, dump
-from plexapi.myplex import MyPlexAccount
 from plexapi.server import PlexServer
 
-
 class PlexBackend():
-            
+
     def __init__(self, plexurl, token, libname, data_path):
         self.token = token
         self.plexurl = plexurl
@@ -14,32 +12,34 @@ class PlexBackend():
         self.plex = PlexServer(self.plexurl, self.token)
         self.music = self.plex.library.section(self.lib_name)
                        
-    def down_plex_lib(self):                
+    def down_plex_lib(self):
         songs = {}
         try:
             playlists = self.plex.playlists()
             songs["playlist"] = {}
             for p in playlists:
-                p_name = p.title                
+                p_name = p.title
                 songs["playlist"][p_name] = []
                 for track in p.items():
-                    title = track.title   
+                    title = track.title
                     file_key = self.get_file(track)
                     file = self.get_tokenized_uri( file_key )
                     songs["playlist"][p_name].append([title, file])
+                    print("dic c")
             root = self.music.all()
             artists = defaultdict(list)
             albums = defaultdict(list)
             titles = defaultdict(list)
-            count = 0    
+            count = 0
             for artist in root:
                 artist_title = artist.title
                 songs[artist_title] = {}
+                print(artist_title)
                 for album in artist.albums():
                     album_title = album.title
-                    songs[artist_title][album_title] = []                    
-                    for track in album.tracks():                                                
-                        title = track.title                        
+                    songs[artist_title][album_title] = []
+                    for track in album.tracks():
+                        title = track.title
                         file_key = self.get_file(track)
                         file = self.get_tokenized_uri( file_key )
                         try:
@@ -50,13 +50,15 @@ class PlexBackend():
 
                             """ % (count, artist_title, album_title, title,file_key))
                             songs[artist_title][album_title].append([title, file])
-                            count += 1                                  
+                            count += 1
                         except Exception as ex:
                             print(ex)
             self.json_save(songs, self.data_path)
-        finally:
-            return songs
-    
+            print("done loading library")
+        except Exception as e:
+            print(e)
+            return None
+
     def json_save(self, data, fname):
         with open(fname, 'w') as fp:
             dump(data, fp)

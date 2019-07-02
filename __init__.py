@@ -30,19 +30,24 @@ class PlexMusicSkill(CommonPlaySkill):
             t_prob = 0
             a_prob = 0
             al_prob = 0
+            p_prob = 0
             if phrase.startswith("artist"):
                 artist, a_prob = self.artist_search(phrase[7:])
             elif phrase.startswith("album"):
                 album, al_prob = self.album_search(phrase[6:])
+            elif phrase.startswith("playlist"):
+                playlist, p_prob = self.album_search(phrase[9:])
             else:
                 title, t_prob = self.title_search(phrase)
                 artist, a_prob = self.artist_search(phrase)
                 album, al_prob = self.album_search(phrase)
+                playlist, p_prob = self.album_search(phrase)
             print(""" Plex Music skill
-    Title   %s  %f
-    Artist  %s  %d
-    Album   %s  %d        
-            """ % (title, t_prob, artist, a_prob, album, al_prob))
+    Title      %s  %f
+    Artist     %s  %d
+    Album      %s  %d        
+    Playlist   %s  %d        
+            """ % (title, t_prob, artist, a_prob, album, al_prob, playlist, p_prob))
             if t_prob > al_prob and t_prob > a_prob:
                 data = {
                     "title": title,
@@ -59,6 +64,12 @@ class PlexMusicSkill(CommonPlaySkill):
                 data = {
                     "title": album,
                     "file": self.albums[album]
+                }
+                return phrase, CPSMatchLevel.MULTI_KEY, data
+            elif p_prob > al_prob:
+                data = {
+                    "title": playlist,
+                    "file": self.playlists[playlist]
                 }
                 return phrase, CPSMatchLevel.MULTI_KEY, data
             else:
@@ -111,6 +122,7 @@ class PlexMusicSkill(CommonPlaySkill):
         self.artists = defaultdict(list)
         self.albums = defaultdict(list)
         self.titles = defaultdict(list)
+        self.playlists = defaultdict(list)
         self.vlcI = vlc.Instance()
         self.player = self.vlcI.media_list_player_new()
         self.player.get_media_player().audio_set_volume(100)
@@ -130,19 +142,28 @@ class PlexMusicSkill(CommonPlaySkill):
 
     def load_data(self):
         LOG.info("loading "+self.data_path)
-        if not os.path.isfile(self.data_path):
-            LOG.info("making new JsonData ")
-            self.plex.down_plex_lib()
-            self.speak_dialog("done")
-        data = self.json_load(self.data_path)
-        for artist in data:
-            for album in data[artist]:
-                for song in data[artist][album]:
-                    title = song[0]
-                    file = song[1]
-                    self.albums[album].append(file)
-                    self.artists[artist].append(file)
-                    self.titles[title].append(file)
+        try:
+            if not os.path.isfile(self.data_path):
+                LOG.info("making new JsonData ")
+                self.plex.down_plex_lib()
+                self.speak_dialog("done")
+
+            data = self.json_load(self.data_path)
+            for artist in data:
+                if artist == "playlist":
+                    for playlist in data[artist]:
+                        for song in data[artist][playlist]:
+                            self.playlists[playlist].append(song[1])
+                for album in data[artist]:
+                    for song in data[artist][album]:
+                        title = song[0]
+                        file = song[1]
+                        self.albums[album].append(file)
+                        self.artists[artist].append(file)
+                        self.titles[title].append(file)
+        except Exception as e:
+            self.refreshing_lib = False
+            print(e)
 
     # thanks to forslund
     def translate_regex(self, regex):
@@ -185,59 +206,6 @@ class PlexMusicSkill(CommonPlaySkill):
         album = probabilities[0]
         confidence = probabilities[1]
         return album, confidence
-
-    def down_plex_lib(self):
-        self.refreshing_lib = True
-        try:
-            xml = requests.get(self.get_tokenized_uri("/library/sections")).text
-            root = ET.fromstring(xml)
-            LOG.info(self.get_tokenized_uri("/library/sections"))
-            LOG.info("loading from library: "+self.lib_name)
-            for child in root:
-                if self.lib_name == child.attrib["title"].lower():
-                    artisturi = self.get_tokenized_uri("/library/sections/" + child.attrib["key"] + "/all")
-            xml = requests.get(artisturi).text
-            root = ET.fromstring(xml)
-            artists = defaultdict(list)
-            albums = defaultdict(list)
-            titles = defaultdict(list)
-            count = 0
-            songs = {}
-            for artist in root:
-                songs[artist.get("title")] = {}
-                artist_uri = self.get_tokenized_uri(artist.get("key"))
-                plexalbums = ET.fromstring(requests.get(artist_uri).text)
-                for album in plexalbums:
-                    songs[artist.get("title")][album.get("title")] = []
-                    album_uri = self.get_tokenized_uri(album.get("key"))
-                    plexsongs = ET.fromstring(requests.get(album_uri).text)
-                    for songmeta in plexsongs:
-                        song_uri = self.get_tokenized_uri(songmeta.get("key"))
-                        try:
-                            s = requests.get(song_uri).text
-                            if s == "":
-                                continue
-                        except:
-                            continue
-                        song = ET.fromstring(s)
-                        for p in song.iter("Part"):
-                            title = songmeta.get("title")
-                            file = self.get_tokenized_uri(p.get("key"))
-                            songs[artist.get("title")][album.get("title")].append([title, file])
-                            # print(songs)
-                            # albums[album.get("title")].append(file)
-                            # artists[artist.get("title")].append(file)
-                            # titles[song.get("title")].append(file)
-                            print("""%d 
-            %s -- %s 
-            %s
-
-                            """ % (count, artist.get("title"), album.get("title"), title))
-                            count += 1
-            self.json_save(songs, self.data_path)
-            LOG.info("done loading library")
-        finally:
-            self.refreshing_lib = False
 
     ######################################################################
     # audio ducking
@@ -314,7 +282,8 @@ class PlexMusicSkill(CommonPlaySkill):
         if self.refreshing_lib:
             self.speak_dialog("already.refresh.library")
             return None
-        else: 
+        else:
+            self.refreshing_lib = True
             self.speak_dialog("refresh.library")
             os.remove(self.data_path)
             self.load_data()
