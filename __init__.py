@@ -120,7 +120,7 @@ class PlexMusicSkill(CommonPlaySkill):
         self.p_uri = self.uri+":32400"
         self.p_token = "?X-Plex-Token="+self.token
         self.data_path = os.path.expanduser("~/.config/plexSkill/data.json")
-        self.plex = PlexBackend(self.p_uri, self.token, self.lib_name, self.data_path)
+        self.plex = None
         self.artists = defaultdict(list)
         self.albums = defaultdict(list)
         self.titles = defaultdict(list)
@@ -130,6 +130,11 @@ class PlexMusicSkill(CommonPlaySkill):
         self.vlc_player.get_media_player().audio_set_volume(100)
 
     def initialize(self):
+        if self.p_uri and self.token and self.lib_name:
+            self.plex = PlexBackend(self.p_uri, self.token, self.lib_name, self.data_path)
+        else:
+            self.speak_dialog("config.missing")
+            pass
         if not os.path.isfile(self.data_path):
             self.speak_dialog("library.unknown")
         self.load_data()
@@ -231,19 +236,20 @@ class PlexMusicSkill(CommonPlaySkill):
             self.vlc_player.get_media_player().audio_set_volume(volume)
 
     def handle_listener_started(self, message):
-        if self.ducking:
+
+        if self.get_running() and self.ducking:
             self.lower_volume_onethird()
 
     def handle_listener_stopped(self, message):
-        if self.ducking:
+        if self.get_running() and self.ducking:
             self.raise_volume_onethird()
 
     def handle_audio_start(self, event):
-        if self.ducking:
+        if self.get_running() and self.ducking:
             self.lower_volume_onethird()
 
     def handle_audio_stop(self, event):
-        if self.ducking:
+        if self.get_running() and self.ducking:
             self.raise_volume_onethird()
 
     ##################################################################
