@@ -149,10 +149,10 @@ class PlexMusicSkill(CommonPlaySkill):
 
     def __init__(self):
         super().__init__(name="TemplateSkill")
-        self.uri = self.settings.get("musicsource", "")
-        self.token = self.settings.get("plextoken", "")
-        self.lib_name = self.settings.get("plexlib", "")
-        self.ducking = self.settings.get("ducking", "True")
+        self.uri = ""
+        self.token = ""
+        self.lib_name = ""
+        self.ducking = "True"
         self.regexes = {}
         self.refreshing_lib = False
         self.p_uri = self.uri+":32400"
@@ -173,10 +173,11 @@ class PlexMusicSkill(CommonPlaySkill):
         self.token = self.settings.get("plextoken", "")
         self.lib_name = self.settings.get("plexlib", "")
         self.ducking = self.settings.get("ducking", "True")
+        self.p_uri = self.uri+":32400"
         if self.load_plex_backend():
             if not os.path.isfile(self.data_path):
                 self.speak_dialog("library.unknown")
-        self.load_data()
+            self.load_data()
         if self.ducking:
             self.add_event('recognizer_loop:record_begin', self.handle_listener_started)
             self.add_event('recognizer_loop:record_end', self.handle_listener_stopped)
@@ -226,7 +227,8 @@ class PlexMusicSkill(CommonPlaySkill):
 
     def load_plex_backend(self):
         if self.plex == None:
-            if self.p_uri and self.token and self.lib_name:
+            LOG.info("\n\nconnecting to:\n{} \n{} {}\n".format(self.p_uri, self.token, self.lib_name))
+            if self.token and self.p_uri and self.lib_name:
                 self.plex = PlexBackend(self.p_uri, self.token, self.lib_name, self.data_path)
                 return True
             else:
