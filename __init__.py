@@ -1,3 +1,26 @@
+# MIT LICENSE
+# Mycroft Skill: Application Launcher, opens/closes Linux desktop applications
+# Copyright © 2019 Philip Mayer philip.mayer@shadowsith.de
+
+# Permission is hereby granted, free of charge, to any person obtaining
+# a copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+
+# The above copyright notice and this permission notice shall be included
+# in all copies or substantial portions of the Software.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+# OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+# DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+# OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
 import os
 import random
 import sys
@@ -77,17 +100,14 @@ class PlexMusicSkill(CommonPlaySkill):
                 return None
 
     def CPS_start(self, phrase, data):
-        if data == None:
+        if data is None:
             return None
         if self.get_running():
             self.vlc_player.get_media_player().audio_set_volume(80)
             self.vlc_player.stop()
-
-        LOG.info(data)
         title = data["title"]
         link = data["file"]
         random.shuffle(link)
-        LOG.info(data)
         try:
             if len(link) >= 1:
                 self.vlc_player = self.vlcI.media_list_player_new()
@@ -99,6 +119,24 @@ class PlexMusicSkill(CommonPlaySkill):
                 m = self.vlcI.media_new(link[0])
                 self.vlc_player.set_media(m)
                 self.vlc_player.play()
+                """
+                links = ''
+                for l in link:
+                    links += '"'+l+'" '
+                os.system("mpv --really-quiet --force-window {} & ".format(links))
+                
+                            if len(link) >= 1:
+                                self.vlc_player = self.vlcI.media_list_player_new()
+                                m = self.vlcI.media_list_new(link)
+                
+                                self.vlc_player.set_media_list(m)
+                                self.vlc_player.play()
+                            elif len(link) > 0:
+                                self.vlc_player = self.vlcI.media_player_new()
+                                m = self.vlcI.media_new(link[0])
+                                self.vlc_player.set_media(m)
+                                self.vlc_player.play()
+                """
         except Exception as e:
             LOG.info(type(e))
             LOG.info("Unexpected error:", sys.exc_info()[0])
@@ -129,20 +167,22 @@ class PlexMusicSkill(CommonPlaySkill):
         self.vlc_player = self.vlcI.media_list_player_new()
         self.vlc_player.get_media_player().audio_set_volume(100)
 
+
     def initialize(self):
-        if self.p_uri and self.token and self.lib_name:
-            self.plex = PlexBackend(self.p_uri, self.token, self.lib_name, self.data_path)
-        else:
-            self.speak_dialog("config.missing")
-            pass
-        if not os.path.isfile(self.data_path):
-            self.speak_dialog("library.unknown")
+        self.uri = self.settings.get("musicsource", "")
+        self.token = self.settings.get("plextoken", "")
+        self.lib_name = self.settings.get("plexlib", "")
+        self.ducking = self.settings.get("ducking", "True")
+        if self.load_plex_backend():
+            if not os.path.isfile(self.data_path):
+                self.speak_dialog("library.unknown")
         self.load_data()
         if self.ducking:
             self.add_event('recognizer_loop:record_begin', self.handle_listener_started)
             self.add_event('recognizer_loop:record_end', self.handle_listener_stopped)
             self.add_event('recognizer_loop:audio_output_start', self.handle_audio_start)
             self.add_event('recognizer_loop:audio_output_end', self.handle_audio_stop)
+        
 
     def get_running(self):
         return self.vlc_player.is_playing()
@@ -152,8 +192,9 @@ class PlexMusicSkill(CommonPlaySkill):
         try:
             if not os.path.isfile(self.data_path):
                 LOG.info("making new JsonData")
-                self.plex.down_plex_lib()
-                self.speak_dialog("done")
+                if self.load_plex_backend():
+                    self.plex.down_plex_lib()
+                    self.speak_dialog("done")
             data = self.json_load(self.data_path)
             for artist in data:
                 if artist == "playlist":
@@ -167,9 +208,8 @@ class PlexMusicSkill(CommonPlaySkill):
                         self.albums[album].append(file)
                         self.artists[artist].append(file)
                         self.titles[title].append(file)
-        except Exception as e:
+        finally:
             self.refreshing_lib = False
-            print(e)
 
     # thanks to forslund
     def translate_regex(self, regex):
@@ -183,6 +223,17 @@ class PlexMusicSkill(CommonPlaySkill):
 
     ###################################
     # Utils
+
+    def load_plex_backend(self):
+        if self.plex == None:
+            if self.p_uri and self.token and self.lib_name:
+                self.plex = PlexBackend(self.p_uri, self.token, self.lib_name, self.data_path)
+                return True
+            else:
+                self.speak_dialog("config.missing")
+                return False
+        else:
+            return True
 
     def json_save(self, data, fname):
         with open(fname, 'w') as fp:
@@ -299,7 +350,10 @@ class PlexMusicSkill(CommonPlaySkill):
         else:
             self.refreshing_lib = True
             self.speak_dialog("refresh.library")
-            os.remove(self.data_path)
+            try:
+                os.remove(self.data_path)
+            except FileNotFoundError:
+                pass                
             self.load_data()
 
     def converse(self, utterances, lang="en-us"):
