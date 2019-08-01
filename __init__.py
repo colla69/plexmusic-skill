@@ -34,6 +34,7 @@ from fuzzywuzzy import fuzz
 from fuzzywuzzy import process
 from json import load, dump
 from .plex_backend import PlexBackend
+from mycroft.audio.services.vlc import VlcService
 import vlc
 
 __author__ = 'colla69'
@@ -103,12 +104,15 @@ class PlexMusicSkill(CommonPlaySkill):
         if data is None:
             return None
         if self.get_running():
-            self.vlc_player.get_media_player().audio_set_volume(80)
+            # self.vlc_player.
             self.vlc_player.stop()
         title = data["title"]
         link = data["file"]
         random.shuffle(link)
         try:
+            self.vlc_player.add_list(link)
+            self.vlc_player.play()
+            """
             if len(link) >= 1:
                 self.vlc_player = self.vlcI.media_list_player_new()
                 m = self.vlcI.media_list_new(link)
@@ -118,25 +122,7 @@ class PlexMusicSkill(CommonPlaySkill):
                 self.vlc_player = self.vlcI.media_player_new()
                 m = self.vlcI.media_new(link[0])
                 self.vlc_player.set_media(m)
-                self.vlc_player.play()
-                """
-                links = ''
-                for l in link:
-                    links += '"'+l+'" '
-                os.system("mpv --really-quiet --force-window {} & ".format(links))
-                
-                            if len(link) >= 1:
-                                self.vlc_player = self.vlcI.media_list_player_new()
-                                m = self.vlcI.media_list_new(link)
-                
-                                self.vlc_player.set_media_list(m)
-                                self.vlc_player.play()
-                            elif len(link) > 0:
-                                self.vlc_player = self.vlcI.media_player_new()
-                                m = self.vlcI.media_new(link[0])
-                                self.vlc_player.set_media(m)
-                                self.vlc_player.play()
-                """
+                self.vlc_player.play() """
         except Exception as e:
             LOG.info(type(e))
             LOG.info("Unexpected error:", sys.exc_info()[0])
@@ -163,10 +149,8 @@ class PlexMusicSkill(CommonPlaySkill):
         self.albums = defaultdict(list)
         self.titles = defaultdict(list)
         self.playlists = defaultdict(list)
-        self.vlcI = vlc.Instance()
-        self.vlc_player = self.vlcI.media_list_player_new()
-        self.vlc_player.get_media_player().audio_set_volume(100)
-
+        self.vlc_player = VlcService(config={})
+        self.vlc_player.normal_volume = 100
 
     def initialize(self):
         self.uri = self.settings.get("musicsource", "")
@@ -183,10 +167,10 @@ class PlexMusicSkill(CommonPlaySkill):
             self.add_event('recognizer_loop:record_end', self.handle_listener_stopped)
             self.add_event('recognizer_loop:audio_output_start', self.handle_audio_start)
             self.add_event('recognizer_loop:audio_output_end', self.handle_audio_stop)
-        
 
     def get_running(self):
-        return self.vlc_player.is_playing()
+        return True
+        # return self.vlc_player.instance.get_media_player().is_playing()
 
     def load_data(self):
         LOG.info("loading "+self.data_path)
@@ -226,7 +210,7 @@ class PlexMusicSkill(CommonPlaySkill):
     # Utils
 
     def load_plex_backend(self):
-        if self.plex == None:
+        if self.plex is None:
             LOG.info("\n\nconnecting to:\n{} \n{} {}\n".format(self.p_uri, self.token, self.lib_name))
             if self.token and self.p_uri and self.lib_name:
                 self.plex = PlexBackend(self.p_uri, self.token, self.lib_name, self.data_path)
@@ -276,34 +260,22 @@ class PlexMusicSkill(CommonPlaySkill):
     ######################################################################
     # audio ducking
 
-    def lower_volume_onethird(self):
-        if self.get_running():
-            volume = self.vlc_player.get_media_player().audio_get_volume()
-            volume = (volume // 3) * 2
-            self.vlc_player.get_media_player().audio_set_volume(volume)
-
-    def raise_volume_onethird(self):
-        if self.get_running():
-            volume = self.vlc_player.get_media_player().audio_get_volume()
-            volume = (volume // 2) * 3
-            self.vlc_player.get_media_player().audio_set_volume(volume)
-
     def handle_listener_started(self, message):
 
         if self.get_running() and self.ducking:
-            self.lower_volume_onethird()
+            self.vlc_player.lower_volume()
 
     def handle_listener_stopped(self, message):
         if self.get_running() and self.ducking:
-            self.raise_volume_onethird()
+            self.vlc_player.restore_volume()
 
     def handle_audio_start(self, event):
-        if self.get_running() and self.ducking:
-            self.lower_volume_onethird()
+        if self.get_running():
+            self.vlc_player.lower_volume()
 
     def handle_audio_stop(self, event):
         if self.get_running() and self.ducking:
-            self.raise_volume_onethird()
+            self.vlc_player.restore_volume()
 
     ##################################################################
     # intents
@@ -318,7 +290,7 @@ class PlexMusicSkill(CommonPlaySkill):
             self.speak_dialog("refresh.library")
             return None
         else:
-            self.vlc_player.play()
+            self.vlc_player.resume()
 
     @intent_file_handler('pause.music.intent')
     def handle_pause_music_intent(self, message):
@@ -363,7 +335,7 @@ class PlexMusicSkill(CommonPlaySkill):
 
     def stop(self):
         self.vlc_player.stop()
-        self.vlcI.release()
+        # self.vlcI.release()
 
 
 def create_skill():
