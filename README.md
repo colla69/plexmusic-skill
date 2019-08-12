@@ -45,12 +45,13 @@ This Mycroft skill can play music from your plex media server with speech comman
   Alternative config (mycroft.conf):<br>
   ```json
   "plexmusic-skill": {
-    "musicsource": "http://my.plex.address", (alternatively use priv.IP "http://192.168.1.101")
+    "musicsource": "http://my.plex.address",
     "plextoken": "ys738s6uPWXpwabc4sRYe", 
     "plexlib": "music", 
     "ducking": true
   }
   ```
+  
   
   The first intallation will need to download all your library metadata and will save it in a JSON file. 
   (~/.config/plexSkill/data.json) <br> 
