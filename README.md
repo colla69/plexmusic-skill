@@ -1,6 +1,6 @@
 # PlexMusic-Skill
 
-<img src="http://blog.mindcreations.com/wp-content/uploads/2016/03/plex-logo.jpg" align="right">
+<img src="https://assets.pcmag.com/media/images/517012-plex-logo.png?width=333&height=245" align="right">
 
 ### Description
 
