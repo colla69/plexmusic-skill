@@ -56,7 +56,6 @@ class PlexBackend():
             self.json_save(songs, self.data_path)
             print("done loading library")
         except Exception as e:
-            print("diocan")
             print(e)
             return None
 

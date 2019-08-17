@@ -143,7 +143,10 @@ class PlexMusicSkill(CommonPlaySkill):
         self.refreshing_lib = False
         self.p_uri = self.uri+":32400"
         self.p_token = "?X-Plex-Token="+self.token
-        self.data_path = os.path.expanduser("~/.config/plexSkill/data.json")
+        self.data_path = os.path.expanduser("~/.config/plexSkill/")
+        if not os.path.exists(self.data_path):
+            os.mkdir(self.data_path)
+        self.data_path += "data.json"
         self.plex = None
         self.artists = defaultdict(list)
         self.albums = defaultdict(list)
@@ -159,7 +162,7 @@ class PlexMusicSkill(CommonPlaySkill):
         self.ducking = self.settings.get("ducking", "True")
         self.p_uri = self.uri+":32400"
         if self.load_plex_backend():
-            if not os.path.isfile(self.data_path):
+            if not os.path.exists(self.data_path):
                 self.speak_dialog("library.unknown")
             self.load_data()
         if self.ducking:
