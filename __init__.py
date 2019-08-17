@@ -35,7 +35,6 @@ from fuzzywuzzy import process
 from json import load, dump
 from .plex_backend import PlexBackend
 from mycroft.audio.services.vlc import VlcService
-import vlc
 
 __author__ = 'colla69'
 
@@ -104,7 +103,7 @@ class PlexMusicSkill(CommonPlaySkill):
         if data is None:
             return None
         if self.get_running():
-            # self.vlc_player.
+            self.vlc_player.clear_list()
             self.vlc_player.stop()
         title = data["title"]
         link = data["file"]
@@ -143,14 +142,17 @@ class PlexMusicSkill(CommonPlaySkill):
         self.refreshing_lib = False
         self.p_uri = self.uri+":32400"
         self.p_token = "?X-Plex-Token="+self.token
-        self.data_path = os.path.expanduser("~/.config/plexSkill/data.json")
+        self.data_path = os.path.expanduser("~/.config/plexSkill/")
+        if not os.path.exists(self.data_path):
+            os.mkdir(self.data_path)
+        self.data_path += "data.json"
         self.plex = None
         self.artists = defaultdict(list)
         self.albums = defaultdict(list)
         self.titles = defaultdict(list)
         self.playlists = defaultdict(list)
-        self.vlc_player = VlcService(config={})
-        self.vlc_player.normal_volume = 100
+        self.tracks = {}
+        self.vlc_player = None
 
     def initialize(self):
         self.uri = self.settings.get("musicsource", "")
@@ -162,6 +164,9 @@ class PlexMusicSkill(CommonPlaySkill):
             if not os.path.isfile(self.data_path):
                 self.speak_dialog("library.unknown")
             self.load_data()
+        self.vlc_player = VlcService(config={'duck': self.ducking})
+        self.vlc_player.normal_volume = 85
+        self.vlc_player.low_volume = 20
         if self.ducking:
             self.add_event('recognizer_loop:record_begin', self.handle_listener_started)
             self.add_event('recognizer_loop:record_end', self.handle_listener_stopped)
@@ -169,8 +174,7 @@ class PlexMusicSkill(CommonPlaySkill):
             self.add_event('recognizer_loop:audio_output_end', self.handle_audio_stop)
 
     def get_running(self):
-        return True
-        # return self.vlc_player.instance.get_media_player().is_playing()
+        return self.vlc_player.player.is_playing()
 
     def load_data(self):
         LOG.info("loading "+self.data_path)
@@ -185,14 +189,20 @@ class PlexMusicSkill(CommonPlaySkill):
                 if artist == "playlist":
                     for playlist in data[artist]:
                         for song in data[artist][playlist]:
-                            self.playlists[playlist].append(song[1])
+                            p_artist = song[0]
+                            album = song[1]
+                            title = song[2]
+                            file = song[3]
+                            self.playlists[playlist].append(file)
+                            self.tracks[file] = (p_artist, album, title)
                 for album in data[artist]:
                     for song in data[artist][album]:
                         title = song[0]
-                        file = song[1]
+                        file = song[1]  # link
                         self.albums[album].append(file)
                         self.artists[artist].append(file)
                         self.titles[title].append(file)
+                        self.tracks[file] = (artist, album, title)
         finally:
             self.refreshing_lib = False
 
@@ -230,7 +240,7 @@ class PlexMusicSkill(CommonPlaySkill):
             return load(fp)
 
     def get_tokenized_uri(self, uri):
-        return self.p_uri + uri + self.p_token
+        return self.p_uri + uri + self.token
 
     def title_search(self, phrase):
         probabilities = process.extractOne(phrase, self.titles.keys(), scorer=fuzz.ratio)
@@ -254,27 +264,25 @@ class PlexMusicSkill(CommonPlaySkill):
         probabilities = process.extractOne(phrase, self.playlists.keys(), scorer=fuzz.ratio)
         playlist = probabilities[0]
         confidence = probabilities[1]
-        print(playlist+ "  " )
         return playlist, confidence
 
     ######################################################################
     # audio ducking
 
     def handle_listener_started(self, message):
-
-        if self.get_running() and self.ducking:
+        if self.ducking:
             self.vlc_player.lower_volume()
 
     def handle_listener_stopped(self, message):
-        if self.get_running() and self.ducking:
+        if self.ducking:
             self.vlc_player.restore_volume()
 
     def handle_audio_start(self, event):
-        if self.get_running():
+        if self.ducking:
             self.vlc_player.lower_volume()
 
     def handle_audio_stop(self, event):
-        if self.get_running() and self.ducking:
+        if self.ducking:
             self.vlc_player.restore_volume()
 
     ##################################################################
@@ -316,6 +324,23 @@ class PlexMusicSkill(CommonPlaySkill):
         else:
             self.vlc_player.previous()
 
+    @intent_file_handler('information.intent')
+    def handle_music_information_intent(self, message):
+        if self.get_running():
+            meta = self.vlc_player.track_info()
+            artist, album, title = meta["artists"], meta["album"], meta["name"]
+            if title.startswith("file"):
+                media = self.vlc_player.player.get_media()
+                link = media.get_mrl()
+                artist, album, title = self.tracks[link]
+                if isinstance(artist, list):
+                    artist = artist[0]
+            LOG.info("""\nPlex skill is playing:
+{}   by   {}  
+Album: {}        
+            """.format(title, artist, album))
+            self.speak_dialog('information', data={'title': title, "artist": artist})
+
     @intent_file_handler('reload.library.intent')
     def handle_reload_library_intent(self, message):
         if self.refreshing_lib:
@@ -335,7 +360,6 @@ class PlexMusicSkill(CommonPlaySkill):
 
     def stop(self):
         self.vlc_player.stop()
-        # self.vlcI.release()
 
 
 def create_skill():

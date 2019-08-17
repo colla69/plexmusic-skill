@@ -23,9 +23,11 @@ class PlexBackend():
                 songs["playlist"][p_name] = []
                 for track in p.items():
                     title = track.title
+                    album = track.album().title
+                    artist = track.artist().title
                     file_key = self.get_file(track)
                     file = self.get_tokenized_uri( file_key )
-                    songs["playlist"][p_name].append([title, file])
+                    songs["playlist"][p_name].append([artist, album, title, file])
             root = self.music.all()
             artists = defaultdict(list)
             albums = defaultdict(list)
@@ -34,7 +36,6 @@ class PlexBackend():
             for artist in root:
                 artist_title = artist.title
                 songs[artist_title] = {}
-                print(artist_title)
                 for album in artist.albums():
                     album_title = album.title
                     songs[artist_title][album_title] = []
@@ -56,7 +57,6 @@ class PlexBackend():
             self.json_save(songs, self.data_path)
             print("done loading library")
         except Exception as e:
-            print("diocan")
             print(e)
             return None
 
