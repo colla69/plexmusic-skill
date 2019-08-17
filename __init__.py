@@ -161,7 +161,7 @@ class PlexMusicSkill(CommonPlaySkill):
         self.ducking = self.settings.get("ducking", "True")
         self.p_uri = self.uri+":32400"
         if self.load_plex_backend():
-            if not os.path.isfile(self.data_path):
+            if not os.path.exists(self.data_path):
                 self.speak_dialog("library.unknown")
             self.load_data()
         self.vlc_player = VlcService(config={'duck': self.ducking})
