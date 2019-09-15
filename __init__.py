@@ -27,7 +27,8 @@ import sys
 import time
 from collections import defaultdict
 import re
-from mycroft.skills.core import intent_file_handler
+from adapt.intent import IntentBuilder
+from mycroft.skills.core import intent_handler, intent_file_handler
 from mycroft.util.log import LOG
 from mycroft.skills.common_play_skill import CommonPlaySkill, CPSMatchLevel
 from fuzzywuzzy import fuzz
@@ -288,19 +289,15 @@ class PlexMusicSkill(CommonPlaySkill):
     ##################################################################
     # intents
 
-    @intent_file_handler('play.music.intent')
-    def handle_play_music_intent(self, message):
-        pass
-
-    @intent_file_handler('resume.music.intent')
+    @intent_handler(IntentBuilder("ResumeMusicIntent").require("resume.music"))
     def handle_resume_music_intent(self, message):
         if self.refreshing_lib:
             self.speak_dialog("refresh.library")
             return None
         else:
-            self.vlc_player.resume()
+            self.vlc_player.play()
 
-    @intent_file_handler('pause.music.intent')
+    @intent_handler(IntentBuilder("PauseMusicIntent").require("pause.music"))
     def handle_pause_music_intent(self, message):
         if self.refreshing_lib:
             self.speak_dialog("refresh.library")
@@ -308,7 +305,7 @@ class PlexMusicSkill(CommonPlaySkill):
         else:
             self.vlc_player.pause()
 
-    @intent_file_handler('next.music.intent')
+    @intent_handler(IntentBuilder("NextMusicIntent").require("next.music"))
     def handle_next_music_intent(self, message):
         if self.refreshing_lib:
             self.speak_dialog("refresh.library")
@@ -316,7 +313,8 @@ class PlexMusicSkill(CommonPlaySkill):
         else:
             self.vlc_player.next()
 
-    @intent_file_handler('prev.music.intent')
+    
+    @intent_handler(IntentBuilder("PrevMusicIntent").require("prev.music"))
     def handle_prev_music_intent(self, message):
         if self.refreshing_lib:
             self.speak_dialog("refresh.library")
@@ -324,7 +322,7 @@ class PlexMusicSkill(CommonPlaySkill):
         else:
             self.vlc_player.previous()
 
-    @intent_file_handler('information.intent')
+    @intent_handler(IntentBuilder("InfoMusicIntent").require("information"))
     def handle_music_information_intent(self, message):
         if self.get_running():
             meta = self.vlc_player.track_info()
@@ -341,7 +339,7 @@ Album: {}
             """.format(title, artist, album))
             self.speak_dialog('information', data={'title': title, "artist": artist})
 
-    @intent_file_handler('reload.library.intent')
+    @intent_handler(IntentBuilder("ReloadLibraryIntent").require("reload.library"))
     def handle_reload_library_intent(self, message):
         if self.refreshing_lib:
             self.speak_dialog("already.refresh.library")
