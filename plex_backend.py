@@ -2,6 +2,7 @@ from collections import defaultdict
 from json import load, dump
 from plexapi.server import PlexServer
 
+
 class PlexBackend():
 
     def __init__(self, plexurl, token, libname, data_path):
@@ -22,12 +23,13 @@ class PlexBackend():
                 p_name = p.title
                 songs["playlist"][p_name] = []
                 for track in p.items():
+                    art = ""
                     title = track.title
                     album = track.album().title
                     artist = track.artist().title
                     file_key = self.get_file(track)
-                    file = self.get_tokenized_uri( file_key )
-                    songs["playlist"][p_name].append([artist, album, title, file])
+                    file = self.get_tokenized_uri(file_key)
+                    songs["playlist"][p_name].append([artist, album, title, file, track.key])
             root = self.music.all()
             artists = defaultdict(list)
             albums = defaultdict(list)
@@ -42,7 +44,7 @@ class PlexBackend():
                     for track in album.tracks():
                         title = track.title
                         file_key = self.get_file(track)
-                        file = self.get_tokenized_uri( file_key )
+                        file = self.get_tokenized_uri(file_key)
                         try:
                             print("""%d 
             %s -- %s 
@@ -50,7 +52,7 @@ class PlexBackend():
             %s
 
                             """ % (count, artist_title, album_title, title,file_key))
-                            songs[artist_title][album_title].append([title, file])
+                            songs[artist_title][album_title].append([title, file, track.key])
                             count += 1
                         except Exception as ex:
                             print(ex)
