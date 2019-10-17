@@ -16,25 +16,18 @@ Mycroft.Delegate {
         source: sessionData.audioSource
         thumbnail: sessionData.audioThumb
         title: sessionData.audioTitle
+        status: sessionData.status
         nextAction: "colla69.plex-audio-player.next"
         previousAction: "colla69.plex-audio-player.prev"
-    }
 
-    Component.onCompleted: {
-        exampleAudioPlayer.status = "play"
-    }
+        onCurrentStateChanged: {
+            console.log("playing: \n" + sessionData.audioSource)
+            if(currentState == MediaPlayer.EndOfMedia) {
 
-    RoundButton {
-        id: backButton
-        anchors.top: parent.top
-        anchors.left: parent.right
-        implicitWidth: Kirigami.Units.iconSizes.large
-        implicitHeight: implicitWidth
-        icon.name: "go-previous-symbolic"
-        onClicked: {
-            triggerGuiEvent("PlexMusicSkill.next", {})
-            exampleAudioPlayer.pause
+                triggerGuiEvent("colla69.plex-audio-player.next", {})
+            }
         }
+
     }
 }
 
