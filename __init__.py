@@ -131,7 +131,6 @@ class PlexMusicSkill(CommonPlaySkill):
         try:
             self.vlc_player.add_list(link)
             self.vlc_player.play()
-            # self.gui["audioSource"] = link
             self.refresh_gui()
         except Exception as e:
             LOG.info(type(e))
@@ -296,29 +295,32 @@ class PlexMusicSkill(CommonPlaySkill):
 
     def get_music_info(self):
         if self.get_running():
-            self.refresh_gui()
             meta = self.vlc_player.track_info()
             title = meta["name"]
             if title.startswith("file"):
                 media = self.vlc_player.player.get_media()
                 link = media.get_mrl()
                 artist, album, title, key = self.tracks[link]
+                # artist = artist[0]
                 if isinstance(artist, list):
-                    artist = artist[0]
+                    pass
             try:
                 return artist, album, title, link, key
             except:
-                return "", album, title, link, key
+                LOG.info("Couldn't retrive music info")
+                return "", "", "", "", ""
         else:
             return "", "", "", "", ""
 
     def refresh_gui(self):
+        # self.gui.clear()
         time.sleep(0.5)
         artist, album, title, link, key = self.get_music_info()
-        # self.gui["audioSource"] = link
-        self.gui.clear()
+        self.gui["audioSource"] = link
         self.gui["audioThumb"] = self.get_thumbnail(key)
         self.gui["audioTitle"] = "{}\n{}".format(artist, title)
+        self.gui["status"] = str("play")
+        LOG.info("showing GUI")
         self.gui.show_page("audioPlayerExample.qml", override_idle=True)
 
     def get_thumbnail(self, key):
@@ -375,7 +377,8 @@ class PlexMusicSkill(CommonPlaySkill):
     @intent_handler(IntentBuilder("InfoMusicIntent").require("information"))
     def handle_music_information_intent(self, message):
         if self.get_running():
-            artist, album, title, link = self.get_music_info()
+            artist, album, title, link, key = self.get_music_info()
+            self.refresh_gui()
             LOG.info("""\nPlex skill is playing:
 {}   by   {}  
 Album: {}        
