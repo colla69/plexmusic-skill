@@ -158,9 +158,10 @@ class PlexMusicSkill(CommonPlaySkill):
     def initialize(self):
         self.uri = self.settings.get("musicsource", "")
         self.token = self.settings.get("plextoken", "")
+        print (self.settings.get("plextoken", ""))        
         self.lib_name = self.settings.get("plexlib", "")
         self.ducking = self.settings.get("ducking", "True")
-        self.p_uri = self.uri+":32400"
+        self.p_uri = self.uri+":32400"        
         if self.load_plex_backend():
             if not os.path.exists(self.data_path):
                 self.speak_dialog("library.unknown")
@@ -222,7 +223,10 @@ class PlexMusicSkill(CommonPlaySkill):
 
     def load_plex_backend(self):
         if self.plex is None:
-            LOG.info("\n\nconnecting to:\n{} \n{} {}\n".format(self.p_uri, self.token, self.lib_name))
+            LOG.info("""\n\n\t connecting to:
+            {} {} 
+            {} 
+            """.format(self.p_uri, self.lib_name, self.token))
             if self.token and self.p_uri and self.lib_name:
                 self.plex = PlexBackend(self.p_uri, self.token, self.lib_name, self.data_path)
                 return True
@@ -231,6 +235,7 @@ class PlexMusicSkill(CommonPlaySkill):
                 return False
         else:
             return True
+
 
     def json_save(self, data, fname):
         with open(fname, 'w') as fp:
@@ -262,10 +267,13 @@ class PlexMusicSkill(CommonPlaySkill):
         return album, confidence
 
     def playlist_search(self, phrase):
-        probabilities = process.extractOne(phrase, self.playlists.keys(), scorer=fuzz.ratio)
-        playlist = probabilities[0]
-        confidence = probabilities[1]
-        return playlist, confidence
+    	if self.playlists :
+	        probabilities = process.extractOne(phrase, self.playlists.keys(), scorer=fuzz.ratio)
+	        playlist = probabilities[0]
+	        confidence = probabilities[1]
+	        return playlist, confidence
+    	else:
+	    	return "", 0
 
     ######################################################################
     # audio ducking
