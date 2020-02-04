@@ -5,20 +5,20 @@ from plexapi.server import PlexServer
 class PlexBackend():
 
     def __init__(self, plexurl, token, libname, data_path):
-
         self.token = token
         self.plexurl = plexurl
         self.lib_name = libname
         self.data_path = data_path
         self.plex = PlexServer(self.plexurl, self.token)
         self.music = self.plex.library.section(self.lib_name)
+        self.playlists = []
                        
     def down_plex_lib(self):
         songs = {}
         try:
-            playlists = self.plex.playlists()
+            self.playlists = self.plex.playlists()
             songs["playlist"] = {}
-            for p in playlists:
+            for p in self.playlists:
                 p_name = p.title
                 songs["playlist"][p_name] = []
                 for track in p.items():
@@ -75,3 +75,20 @@ class PlexBackend():
         for media in track.media:
             for p in media.parts:
                 return p.key
+
+    def add_to_playlist(self, playlist_name, artist, album, title ):
+        print("""\nadding to playlist:
+        {}   by   {}  
+        Album: {}        
+                    """.format(title, artist, album))
+        for p in self.playlists:
+            p_name = p.title
+        root = self.music.all()
+        """for artist in root:            
+            artist_title = artist.title
+            for album in artist.albums():
+                album_title = album.title
+                for track in album.tracks():
+                    title = track.title
+                print(".")"""
+        print("done")

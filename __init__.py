@@ -374,6 +374,21 @@ class PlexMusicSkill(CommonPlaySkill):
         else:
             self.vlc_player.previous()
 
+    @intent_handler(IntentBuilder("AddToPlaylist").require("add.to.playlist"))
+    def handle_add_to_playlist(self, message):
+        if self.refreshing_lib:
+            self.speak_dialog("refresh.library")
+            return None
+        else:
+            if self.get_running():
+                meta = self.vlc_player.track_info()
+                artist, album, title = meta["artists"], meta["album"], meta["name"]
+                if title.startswith("file"):
+                    artist, album, title = self.tracks[link]
+                    if isinstance(artist, list):
+                        artist = artist[0]
+                self.plex.add_to_playlist("p", artist, album, title)
+
     @intent_handler(IntentBuilder("InfoMusicIntent").require("information"))
     def handle_music_information_intent(self, message):
         if self.get_running():
