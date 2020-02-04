@@ -76,19 +76,19 @@ class PlexBackend():
             for p in media.parts:
                 return p.key
 
-    def add_to_playlist(self, playlist_name, artist, album, title ):
+    def add_to_playlist(self, playlist_name, partist, palbum, ptitle ):
         print("""\nadding to playlist:
         {}   by   {}  
         Album: {}        
-                    """.format(title, artist, album))
+                    """.format(ptitle, partist, palbum))
         for p in self.playlists:
             p_name = p.title
         root = self.music.all()
-        """for artist in root:            
-            artist_title = artist.title
-            for album in artist.albums():
-                album_title = album.title
-                for track in album.tracks():
-                    title = track.title
-                print(".")"""
+        for artist in root:
+            if partist == artist.title:
+                for album in artist.albums():
+                    if palbum == album.title:
+                        for track in album.tracks():
+                            if ptitle == track.title:
+                                title = track.title
         print("done")

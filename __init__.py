@@ -384,6 +384,8 @@ class PlexMusicSkill(CommonPlaySkill):
                 meta = self.vlc_player.track_info()
                 artist, album, title = meta["artists"], meta["album"], meta["name"]
                 if title.startswith("file"):
+                    media = self.vlc_player.player.get_media()
+                    link = media.get_mrl()
                     artist, album, title = self.tracks[link]
                     if isinstance(artist, list):
                         artist = artist[0]
