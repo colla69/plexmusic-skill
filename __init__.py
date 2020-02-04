@@ -56,7 +56,13 @@ class PlexMusicSkill(CommonPlaySkill):
             a_prob = 0
             al_prob = 0
             p_prob = 0
-            if phrase.startswith("artist"):
+            if "random" in phrase and "music" in phrase:
+                data = {
+                    "title": "random",
+                    "file": self.titles
+                }
+                return phrase, CPSMatchLevel.TITLE, data
+            elif phrase.startswith("artist"):
                 artist, a_prob = self.artist_search(phrase[7:])
             elif phrase.startswith("album"):
                 album, al_prob = self.album_search(phrase[6:])
@@ -104,10 +110,12 @@ class PlexMusicSkill(CommonPlaySkill):
         if data is None:
             return None
         if self.get_running():
-            self.vlc_player.clear_list()
             self.vlc_player.stop()
+        self.vlc_player.clear_list()
         title = data["title"]
         link = data["file"]
+        if title == "random":
+            link = list(link.values())
         random.shuffle(link)
         try:
             self.vlc_player.add_list(link)
@@ -141,7 +149,7 @@ class PlexMusicSkill(CommonPlaySkill):
         self.ducking = "True"
         self.regexes = {}
         self.refreshing_lib = False
-        self.p_uri = self.uri+":32400"
+        self.p_uri = self.uri
         self.p_token = "?X-Plex-Token="+self.token
         self.data_path = os.path.expanduser("~/.config/plexSkill/")
         if not os.path.exists(self.data_path):
@@ -161,7 +169,7 @@ class PlexMusicSkill(CommonPlaySkill):
         print (self.settings.get("plextoken", ""))        
         self.lib_name = self.settings.get("plexlib", "")
         self.ducking = self.settings.get("ducking", "True")
-        self.p_uri = self.uri+":32400"        
+        self.p_uri = self.uri
         if self.load_plex_backend():
             if not os.path.exists(self.data_path):
                 self.speak_dialog("library.unknown")
