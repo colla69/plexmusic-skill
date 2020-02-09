@@ -19,11 +19,8 @@
 # DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
 # OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-<<<<<<< Updated upstream
 
 
-=======
->>>>>>> Stashed changes
 import os
 import random
 import re
@@ -257,15 +254,13 @@ class PlexMusicSkill(CommonPlaySkill):
         return self.search(phrase, self.albums)
 
     def playlist_search(self, phrase):
-<<<<<<< Updated upstream
-    	if self.playlists :
-	        probabilities = process.extractOne(phrase, self.playlists.keys(), scorer=fuzz.ratio)
-	        playlist = probabilities[0]
-	        confidence = probabilities[1]
-	        return playlist, confidence
-    	else:
-	    	return "", 0
-=======
+        <<<<<<< Updated upstreamif self.playlists :
+            probabilities = process.extractOne(phrase, self.playlists.keys(), scorer=fuzz.ratio)
+            playlist = probabilities[0]
+            confidence = probabilities[1]
+            return playlist, confidence
+        else:
+            return "", 0=======
         return self.search(phrase, self.playlists)
 
     def by_search(self, phrase):
@@ -316,6 +311,17 @@ class PlexMusicSkill(CommonPlaySkill):
                 self.regexes[regex] = string
         return self.regexes[regex]
 
+    def get_active_track_info(self):
+        meta = self.vlc_player.track_info()
+        artist, album, title = meta["artists"], meta["album"], meta["name"]
+        if title.startswith("file"):
+            media = self.vlc_player.player.get_media()
+            link = media.get_mrl()
+            artist, album, title = self.tracks[link]
+            if isinstance(artist, list):
+                artist = artist[0]
+        return album, artist, title
+
     ######################################################################
     # audio ducking
 
@@ -363,7 +369,7 @@ class PlexMusicSkill(CommonPlaySkill):
             self.vlc_player.next()
 
 <<<<<<< Updated upstream
-    
+
 =======
 >>>>>>> Stashed changes
     @intent_handler(IntentBuilder("PrevMusicIntent").require("prev.music"))
@@ -380,28 +386,18 @@ class PlexMusicSkill(CommonPlaySkill):
             self.speak_dialog("refresh.library")
             return None
         else:
+            # LOG.info(str(json.dumps(message.data, indent=4)))
+            pl_name = message.data["utterance"][16:]
+            playlist, confidence = self.playlist_search(pl_name)
+            LOG.info("adding to playlist: {}".format(playlist))
             if self.get_running():
-                meta = self.vlc_player.track_info()
-                artist, album, title = meta["artists"], meta["album"], meta["name"]
-                if title.startswith("file"):
-                    media = self.vlc_player.player.get_media()
-                    link = media.get_mrl()
-                    artist, album, title = self.tracks[link]
-                    if isinstance(artist, list):
-                        artist = artist[0]
-                self.plex.add_to_playlist("p", artist, album, title)
+                album, artist, title = self.get_active_track_info()
+                self.plex.add_to_playlist(playlist, artist, album, title)
 
     @intent_handler(IntentBuilder("InfoMusicIntent").require("information"))
     def handle_music_information_intent(self, message):
         if self.get_running():
-            meta = self.vlc_player.track_info()
-            artist, album, title = meta["artists"], meta["album"], meta["name"]
-            if title.startswith("file"):
-                media = self.vlc_player.player.get_media()
-                link = media.get_mrl()
-                artist, album, title = self.tracks[link]
-                if isinstance(artist, list):
-                    artist = artist[0]
+            album, artist, title = self.get_active_track_info()
             LOG.info("""\nPlex skill is playing:
 {}   by   {}  
 Album: {}        
