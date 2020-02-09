@@ -367,8 +367,7 @@ class PlexMusicSkill(CommonPlaySkill):
             return None
         else:
             self.vlc_player.next()
-
-<<<<<<< Updated upstream
+    <<<<<<< Updated upstream
 
 =======
 >>>>>>> Stashed changes
@@ -389,7 +388,8 @@ class PlexMusicSkill(CommonPlaySkill):
             # LOG.info(str(json.dumps(message.data, indent=4)))
             pl_name = message.data["utterance"][16:]
             playlist, confidence = self.playlist_search(pl_name)
-            LOG.info("adding to playlist: {}".format(playlist))
+            if playlist == "":
+                pass
             if self.get_running():
                 album, artist, title = self.get_active_track_info()
                 self.plex.add_to_playlist(playlist, artist, album, title)

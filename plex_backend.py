@@ -1,6 +1,8 @@
 from collections import defaultdict
 from json import load, dump
 from plexapi.server import PlexServer
+from mycroft.util.log import LOG
+
 
 class PlexBackend():
 
@@ -11,12 +13,11 @@ class PlexBackend():
         self.data_path = data_path
         self.plex = PlexServer(self.plexurl, self.token)
         self.music = self.plex.library.section(self.lib_name)
-        self.playlists = []
-                       
+        self.playlists = self.plex.playlists()
+
     def down_plex_lib(self):
         songs = {}
         try:
-            self.playlists = self.plex.playlists()
             songs["playlist"] = {}
             for p in self.playlists:
                 p_name = p.title
@@ -44,7 +45,7 @@ class PlexBackend():
                         file_key = self.get_file(track)
                         file = self.get_tokenized_uri( file_key )
                         try:
-                            print("""%d 
+                            LOG.debug("""%d 
             %s -- %s 
             %s
             %s
@@ -55,7 +56,7 @@ class PlexBackend():
                         except Exception as ex:
                             print(ex)
             self.json_save(songs, self.data_path)
-            print("done loading library")
+            LOG.info("done loading library")
         except Exception as e:
             print(e)
             return None
@@ -77,12 +78,10 @@ class PlexBackend():
                 return p.key
 
     def add_to_playlist(self, playlist_name, partist, palbum, ptitle ):
-        print("""\nadding to playlist: {}
+        LOG.info("""\nadding to playlist: {}
         {}   by   {}  
         Album: {}        
                     """.format(playlist_name, ptitle, partist, palbum))
-        # if not self.playlists:
-        self.playlists = self.plex.playlists()
         for p in self.playlists:
             if playlist_name == p.title:
                 playlist = p
@@ -96,4 +95,4 @@ class PlexBackend():
                             if ptitle == track.title:
                                 add_track = track
         playlist.addItems(add_track)
-        print("success!")
+        LOG.info("success!")
