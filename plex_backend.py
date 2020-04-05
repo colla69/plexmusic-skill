@@ -1,5 +1,6 @@
 from collections import defaultdict
 from json import load, dump
+
 from plexapi.server import PlexServer
 
 
@@ -13,7 +14,7 @@ class PlexBackend():
         self.data_path = data_path
         self.plex = PlexServer(self.plexurl, self.token)
         self.music = self.plex.library.section(self.lib_name)
-                       
+
     def down_plex_lib(self):
         songs = {}
         try:
@@ -51,7 +52,7 @@ class PlexBackend():
             %s
             %s
 
-                            """ % (count, artist_title, album_title, title,file_key))
+                            """ % (count, artist_title, album_title, title, file_key))
                             songs[artist_title][album_title].append([title, file, track.key])
                             count += 1
                         except Exception as ex:
@@ -69,11 +70,11 @@ class PlexBackend():
     def json_load(self, fname):
         with open(fname, 'r') as fp:
             return load(fp)
-        
-    def get_tokenized_uri(self, uri):
-        return self.plexurl+uri+"?X-Plex-Token="+self.token
 
-    def get_file(self,track):
+    def get_tokenized_uri(self, uri):
+        return self.plexurl + uri + "?X-Plex-Token=" + self.token
+
+    def get_file(self, track):
         for media in track.media:
             for p in media.parts:
                 return p.key

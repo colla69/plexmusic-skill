@@ -26,18 +26,19 @@ import random
 import re
 import sys
 import time
+import xml.etree.ElementTree as ET
 from collections import defaultdict
 from json import load, dump
 
+import requests
 from adapt.intent import IntentBuilder
 from fuzzywuzzy import fuzz
 from fuzzywuzzy import process
-
 from mycroft.audio.services.vlc import VlcService
-from mycroft.skills import resting_screen_handler
 from mycroft.skills.common_play_skill import CommonPlaySkill, CPSMatchLevel
 from mycroft.skills.core import intent_handler
 from mycroft.util.log import LOG
+
 from .plex_backend import PlexBackend
 
 __author__ = 'colla69'
@@ -56,10 +57,12 @@ class PlexMusicSkill(CommonPlaySkill):
             artist = ""
             album = ""
             playlist = ""
+            by_title = ""
             t_prob = 0
             a_prob = 0
             al_prob = 0
             p_prob = 0
+            by_prob = 0
             if "random" in phrase and "music" in phrase:
                 data = {
                     "title": "random",
@@ -201,14 +204,14 @@ class PlexMusicSkill(CommonPlaySkill):
                             album = song[1]
                             title = song[2]
                             file = song[3]
-                            key = song[4]
+                            key = self.get_key_if_existent(song, 4)
                             self.playlists[playlist].append(file)
                             self.tracks[file] = (p_artist, album, title, key)
                 for album in data[artist]:
                     for song in data[artist][album]:
                         title = song[0]
                         file = song[1]  # link
-                        key = song[2]
+                        key = self.get_key_if_existent(song, 2)
                         self.albums[album].append(file)
                         self.artists[artist].append(file)
                         self.titles[title].append(file)
@@ -218,6 +221,13 @@ class PlexMusicSkill(CommonPlaySkill):
                         self.tracksByArtist[bySearchValue].append(file)
         finally:
             self.refreshing_lib = False
+
+    def get_key_if_existent(self, song, index):
+        try:
+            key = song[index]
+        except:
+            key = ""
+        return key
 
     def load_plex_backend(self):
         if self.plex is None:
