@@ -19,23 +19,28 @@
 # DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
 # OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+<<<<<<< Updated upstream
 
 
+=======
+>>>>>>> Stashed changes
 import os
 import random
+import re
 import sys
 import time
 from collections import defaultdict
-import re
+from json import load, dump
+
 from adapt.intent import IntentBuilder
-from mycroft.skills.core import intent_handler, intent_file_handler
-from mycroft.util.log import LOG
-from mycroft.skills.common_play_skill import CommonPlaySkill, CPSMatchLevel
 from fuzzywuzzy import fuzz
 from fuzzywuzzy import process
-from json import load, dump
-from .plex_backend import PlexBackend
+
 from mycroft.audio.services.vlc import VlcService
+from mycroft.skills.common_play_skill import CommonPlaySkill, CPSMatchLevel
+from mycroft.skills.core import intent_handler
+from mycroft.util.log import LOG
+from .plex_backend import PlexBackend
 
 __author__ = 'colla69'
 
@@ -73,12 +78,14 @@ class PlexMusicSkill(CommonPlaySkill):
                 artist, a_prob = self.artist_search(phrase)
                 album, al_prob = self.album_search(phrase)
                 playlist, p_prob = self.playlist_search(phrase)
+                by_title, by_prob = self.by_search(phrase)
             print(""" Plex Music skill
     Title      %s  %f
     Artist     %s  %d
     Album      %s  %d        
     Playlist   %s  %d        
-            """ % (title, t_prob, artist, a_prob, album, al_prob, playlist, p_prob))
+    by Search  %s  %d        
+            """ % (title, t_prob, artist, a_prob, album, al_prob, playlist, p_prob, by_title, by_prob))
             if t_prob > al_prob and t_prob > a_prob:
                 data = {
                     "title": title,
@@ -101,6 +108,12 @@ class PlexMusicSkill(CommonPlaySkill):
                 data = {
                     "title": playlist,
                     "file": self.playlists[playlist]
+                }
+                return phrase, CPSMatchLevel.MULTI_KEY, data
+            elif by_prob > p_prob:
+                data = {
+                    "title": by_title,
+                    "file": self.tracksByArtist[by_title]
                 }
                 return phrase, CPSMatchLevel.MULTI_KEY, data
             else:
@@ -150,7 +163,7 @@ class PlexMusicSkill(CommonPlaySkill):
         self.regexes = {}
         self.refreshing_lib = False
         self.p_uri = self.uri
-        self.p_token = "?X-Plex-Token="+self.token
+        self.p_token = "?X-Plex-Token=" + self.token
         self.data_path = os.path.expanduser("~/.config/plexSkill/")
         if not os.path.exists(self.data_path):
             os.mkdir(self.data_path)
@@ -160,13 +173,13 @@ class PlexMusicSkill(CommonPlaySkill):
         self.albums = defaultdict(list)
         self.titles = defaultdict(list)
         self.playlists = defaultdict(list)
+        self.tracksByArtist = defaultdict(list)
         self.tracks = {}
         self.vlc_player = None
 
     def initialize(self):
         self.uri = self.settings.get("musicsource", "")
         self.token = self.settings.get("plextoken", "")
-        print (self.settings.get("plextoken", ""))        
         self.lib_name = self.settings.get("plexlib", "")
         self.ducking = self.settings.get("ducking", "True")
         self.p_uri = self.uri
@@ -187,7 +200,7 @@ class PlexMusicSkill(CommonPlaySkill):
         return self.vlc_player.player.is_playing()
 
     def load_data(self):
-        LOG.info("loading "+self.data_path)
+        LOG.info("loading " + self.data_path)
         try:
             if not os.path.isfile(self.data_path):
                 LOG.info("making new JsonData")
@@ -213,21 +226,11 @@ class PlexMusicSkill(CommonPlaySkill):
                         self.artists[artist].append(file)
                         self.titles[title].append(file)
                         self.tracks[file] = (artist, album, title)
+                        # todo make separator translatable
+                        bySearchValue = title + " by " + artist
+                        self.tracksByArtist[bySearchValue].append(file)
         finally:
             self.refreshing_lib = False
-
-    # thanks to forslund
-    def translate_regex(self, regex):
-        if regex not in self.regexes:
-            path = self.find_resource(regex + '.regex')
-            if path:
-                with open(path) as f:
-                    string = f.read().strip()
-                self.regexes[regex] = string
-        return self.regexes[regex]
-
-    ###################################
-    # Utils
 
     def load_plex_backend(self):
         if self.plex is None:
@@ -244,6 +247,53 @@ class PlexMusicSkill(CommonPlaySkill):
         else:
             return True
 
+    def title_search(self, phrase):
+        return self.search(phrase, self.titles)
+
+    def artist_search(self, phrase):
+        return self.search(phrase, self.artists)
+
+    def album_search(self, phrase):
+        return self.search(phrase, self.albums)
+
+    def playlist_search(self, phrase):
+<<<<<<< Updated upstream
+    	if self.playlists :
+	        probabilities = process.extractOne(phrase, self.playlists.keys(), scorer=fuzz.ratio)
+	        playlist = probabilities[0]
+	        confidence = probabilities[1]
+	        return playlist, confidence
+    	else:
+	    	return "", 0
+=======
+        return self.search(phrase, self.playlists)
+
+    def by_search(self, phrase):
+        return self.search(phrase, self.tracksByArtist)
+
+    def search(self, phrase, searching_list):
+        if searching_list:
+            probabilities = process.extractOne(phrase, searching_list.keys(), scorer=fuzz.ratio)
+            result = probabilities[0]
+            confidence = probabilities[1]
+            return result, confidence
+        else:
+            return "", 0
+
+    def get_active_track_info(self):
+        meta = self.vlc_player.track_info()
+        artist, album, title = meta["artists"], meta["album"], meta["name"]
+        if title.startswith("file"):
+            media = self.vlc_player.player.get_media()
+            link = media.get_mrl()
+            artist, album, title = self.tracks[link]
+            if isinstance(artist, list):
+                artist = artist[0]
+        return album, artist, title
+>>>>>>> Stashed changes
+
+    ######################################################################
+    # utils
 
     def json_save(self, data, fname):
         with open(fname, 'w') as fp:
@@ -256,32 +306,15 @@ class PlexMusicSkill(CommonPlaySkill):
     def get_tokenized_uri(self, uri):
         return self.p_uri + uri + self.token
 
-    def title_search(self, phrase):
-        probabilities = process.extractOne(phrase, self.titles.keys(), scorer=fuzz.ratio)
-        artist = probabilities[0]
-        confidence = probabilities[1]
-        return artist, confidence
-
-    def artist_search(self, phrase):
-        probabilities = process.extractOne(phrase, self.artists.keys(), scorer=fuzz.ratio)
-        artist = probabilities[0]
-        confidence = probabilities[1]
-        return artist, confidence
-
-    def album_search(self, phrase):
-        probabilities = process.extractOne(phrase, self.albums.keys(), scorer=fuzz.ratio)
-        album = probabilities[0]
-        confidence = probabilities[1]
-        return album, confidence
-
-    def playlist_search(self, phrase):
-    	if self.playlists :
-	        probabilities = process.extractOne(phrase, self.playlists.keys(), scorer=fuzz.ratio)
-	        playlist = probabilities[0]
-	        confidence = probabilities[1]
-	        return playlist, confidence
-    	else:
-	    	return "", 0
+    # thanks to forslund
+    def translate_regex(self, regex):
+        if regex not in self.regexes:
+            path = self.find_resource(regex + '.regex')
+            if path:
+                with open(path) as f:
+                    string = f.read().strip()
+                self.regexes[regex] = string
+        return self.regexes[regex]
 
     ######################################################################
     # audio ducking
@@ -329,7 +362,10 @@ class PlexMusicSkill(CommonPlaySkill):
         else:
             self.vlc_player.next()
 
+<<<<<<< Updated upstream
     
+=======
+>>>>>>> Stashed changes
     @intent_handler(IntentBuilder("PrevMusicIntent").require("prev.music"))
     def handle_prev_music_intent(self, message):
         if self.refreshing_lib:
@@ -366,7 +402,7 @@ Album: {}
             try:
                 os.remove(self.data_path)
             except FileNotFoundError:
-                pass                
+                pass
             self.load_data()
 
     def converse(self, utterances, lang="en-us"):
