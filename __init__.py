@@ -19,11 +19,7 @@
 # DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
 # OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-<<<<<<< Updated upstream
 
-
-=======
->>>>>>> Stashed changes
 import os
 import random
 import re
@@ -257,15 +253,6 @@ class PlexMusicSkill(CommonPlaySkill):
         return self.search(phrase, self.albums)
 
     def playlist_search(self, phrase):
-<<<<<<< Updated upstream
-    	if self.playlists :
-	        probabilities = process.extractOne(phrase, self.playlists.keys(), scorer=fuzz.ratio)
-	        playlist = probabilities[0]
-	        confidence = probabilities[1]
-	        return playlist, confidence
-    	else:
-	    	return "", 0
-=======
         return self.search(phrase, self.playlists)
 
     def by_search(self, phrase):
@@ -290,7 +277,6 @@ class PlexMusicSkill(CommonPlaySkill):
             if isinstance(artist, list):
                 artist = artist[0]
         return album, artist, title
->>>>>>> Stashed changes
 
     ######################################################################
     # utils
@@ -362,10 +348,6 @@ class PlexMusicSkill(CommonPlaySkill):
         else:
             self.vlc_player.next()
 
-<<<<<<< Updated upstream
-    
-=======
->>>>>>> Stashed changes
     @intent_handler(IntentBuilder("PrevMusicIntent").require("prev.music"))
     def handle_prev_music_intent(self, message):
         if self.refreshing_lib:
